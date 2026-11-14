@@ -14,6 +14,7 @@ tcontext/data/raw/
 tcontext/data/clean/
 tcontext/data/sampled_25_percent/
 tcontext/data/hf_parquet/
+tcontext/scratch/
 tcontext/model/
 tcontext/vector_db/
 
