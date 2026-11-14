@@ -52,9 +52,11 @@ Evaluated on the full **Microsoft Cats vs. Dogs** benchmark ($N=2,500$ verified 
 | **ResNet18** | Residual CNN (Fine-Tuned) | 99.20% | 0.9894 | 0.9947 | 0.9920 | 0.9990 | 149.20 s | 3.69 ms | 271.0 | 11,177,538 |
 | **ViT-B/16** | Vision Transformer (Fine-Tuned) | 99.47% | 0.9947 | 0.9947 | 0.9947 | 0.9997 | 479.95 s | 10.98 ms | 91.0 | 85,800,194 |
 | **CLIP (ViT-B/32)** | Foundation Vision-Language | 99.73% | 0.9947 | 1.0000 | 0.9973 | 1.0000 | 173.16 s | 4.43 ms | 225.7 | 151,278,339 |
-| **Naive Retrieval** | Vector Index (ChromaDB) | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.80 s** | **0.18 ms** | **5,653.9** | **0 (Frozen)** |
-| **Fine-Tuned Retrieval** | Contrastive Adapter + DB | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.69 s** | **0.14 ms** | **7,152.5** | 526,337 |
-| **Proposed IMO Framework** | Vector Index + IMO Orchestrator | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **1.27 s** | **0.15 ms** | **6,726.0** | **0 (Frozen)** |
+| **Naive Retrieval** | Vector Index (ChromaDB) | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.80 s** | **0.18 ms\*** | **5,653.9\*** | **0 (Frozen)** |
+| **Fine-Tuned Retrieval** | Contrastive Adapter + DB | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.69 s** | **0.14 ms\*** | **7,152.5\*** | 526,337 |
+| **Proposed IMO Framework** | Vector Index + IMO Orchestrator | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **1.27 s** | **0.15 ms\*** | **6,726.0\*** | **0 (Frozen)** |
+
+*\*Note on Retrieval Latency:* The 0.14 -- 0.18 ms figure denotes non-parametric HNSW vector index search over pre-extracted 512-dim embeddings. For raw end-to-end image inference, adding the invariant CLIP ViT-B/32 visual encoder forward pass yields **4.58 ms on GPU** (4.43 ms encode + 0.15 ms search) and **17.55 ms on CPU** (17.40 ms encode + 0.15 ms search).
 
 ---
 

@@ -5,7 +5,7 @@ All backbones are frozen (feature extractors) with a trained linear probe classi
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader
 from torchvision.models import (
     EfficientNet_B0_Weights,
@@ -27,6 +27,8 @@ class MobileNetV3SmallClassifier(BaseClassifier):
         self.num_classes = num_classes
         self.embedding_dim = 576
         self.build_model()
+        if self.model is not None:
+            self.model.to(self.device)
 
     def build_model(self) -> nn.Module:
         weights = MobileNet_V3_Small_Weights.DEFAULT
@@ -65,6 +67,8 @@ class EfficientNetB0Classifier(BaseClassifier):
         self.num_classes = num_classes
         self.embedding_dim = 1280
         self.build_model()
+        if self.model is not None:
+            self.model.to(self.device)
 
     def build_model(self) -> nn.Module:
         weights = EfficientNet_B0_Weights.DEFAULT
@@ -103,6 +107,8 @@ class ResNet18Classifier(BaseClassifier):
         self.num_classes = num_classes
         self.embedding_dim = 512
         self.build_model()
+        if self.model is not None:
+            self.model.to(self.device)
 
     def build_model(self) -> nn.Module:
         weights = ResNet18_Weights.DEFAULT

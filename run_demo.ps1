@@ -81,12 +81,15 @@ else {
     Write-Host "Verified existing benchmark summary and artifacts in tcontext\artifacts." -ForegroundColor Green
 }
 
-# Free port 8501
+# Safely free port if held by previous Streamlit/Python process
 $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if ($listeners) {
     $pidsToStop = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
     foreach ($pidToStop in $pidsToStop) {
-        Stop-Process -Id $pidToStop -Force -ErrorAction SilentlyContinue
+        $procObj = Get-Process -Id $pidToStop -ErrorAction SilentlyContinue
+        if ($procObj -and ($procObj.ProcessName -match "python|streamlit")) {
+            Stop-Process -Id $pidToStop -Force -ErrorAction SilentlyContinue
+        }
     }
     Start-Sleep -Seconds 1
 }

@@ -5,7 +5,7 @@ Self-attention transformer architecture for vision representation.
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader
 from torchvision.models import ViT_B_16_Weights, vit_b_16
 
@@ -20,6 +20,8 @@ class ViTClassifier(BaseClassifier):
         self.num_classes = num_classes
         self.embedding_dim = 768
         self.build_model()
+        if self.model is not None:
+            self.model.to(self.device)
 
     def build_model(self) -> nn.Module:
         weights = ViT_B_16_Weights.DEFAULT

@@ -3,9 +3,8 @@ Vector Store Wrapper for ChromaDB.
 Manages persistent and in-memory collections of normalized feature embeddings.
 """
 
-import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import chromadb
 import numpy as np
@@ -43,9 +42,9 @@ class ChromaVectorStore:
 
     def add(
         self,
-        ids: List[str],
-        embeddings: np.ndarray | List[List[float]],
-        metadatas: Optional[List[Dict[str, Any]]] = None
+        ids: list[str],
+        embeddings: np.ndarray | list[list[float]],
+        metadatas: list[dict[str, Any]] | None = None
     ):
         """Add vectors with metadata to collection."""
         if isinstance(embeddings, np.ndarray):
@@ -54,10 +53,10 @@ class ChromaVectorStore:
 
     def query(
         self,
-        query_embeddings: np.ndarray | List[List[float]],
+        query_embeddings: np.ndarray | list[list[float]],
         n_results: int = 5,
-        include: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        include: list[str] | None = None
+    ) -> dict[str, Any]:
         """Perform nearest neighbor cosine search."""
         if include is None:
             include = ["metadatas", "distances"]

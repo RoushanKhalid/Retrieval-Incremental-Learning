@@ -10,7 +10,7 @@ The central thesis contribution: Controls vector memory quality via:
 
 import time
 from collections import Counter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -40,11 +40,11 @@ class IntelligentMemoryOrchestrator:
         self.enable_evidence_fusion = enable_evidence_fusion
 
         # Dynamic class prototype vectors: class_idx -> normalized 1D array
-        self.prototypes: Dict[int, np.ndarray] = {}
-        self.prototype_counts: Dict[int, int] = {}
+        self.prototypes: dict[int, np.ndarray] = {}
+        self.prototype_counts: dict[int, int] = {}
 
         # Quarantine buffer for suspicious, conflicting, or outlier samples
-        self.quarantine_buffer: List[Dict[str, Any]] = []
+        self.quarantine_buffer: list[dict[str, Any]] = []
 
         # Orchestration audit statistics
         self.stats = {
@@ -76,9 +76,9 @@ class IntelligentMemoryOrchestrator:
         embedding: np.ndarray,
         candidate_label: int,
         vector_store_query_fn=None,
-        classifier_confidence: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Tuple[bool, str]:
+        classifier_confidence: float | None = None,
+        metadata: dict[str, Any] | None = None
+    ) -> tuple[bool, str]:
         """
         Evaluate candidate sample through the IMO gating pipeline before memory insertion.
         Returns (is_accepted, reason).
@@ -154,7 +154,7 @@ class IntelligentMemoryOrchestrator:
         self.update_prototype(emb, candidate_label)
         return True, "Accepted"
 
-    def _quarantine(self, embedding: np.ndarray, label: int, reason: str, metadata: Optional[Dict[str, Any]]):
+    def _quarantine(self, embedding: np.ndarray, label: int, reason: str, metadata: dict[str, Any] | None):
         """Route failed candidate to quarantine buffer."""
         record = {
             "timestamp": time.time(),
@@ -167,8 +167,8 @@ class IntelligentMemoryOrchestrator:
     def fuse_predictions(
         self,
         base_probs: np.ndarray,
-        retrieval_neighbor_labels: List[List[int]],
-        retrieval_distances: List[List[float]],
+        retrieval_neighbor_labels: list[list[int]],
+        retrieval_distances: list[list[float]],
         temperature: float = 10.0,
         num_classes: int = 2
     ) -> np.ndarray:
@@ -207,7 +207,7 @@ class IntelligentMemoryOrchestrator:
         fused = fused / (np.sum(fused, axis=-1, keepdims=True) + 1e-12)
         return fused
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Return IMO quality filtering metrics and status."""
         total = max(1, self.stats["presented"])
         return {

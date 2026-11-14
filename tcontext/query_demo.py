@@ -8,7 +8,6 @@ import torch.nn.functional as F
 from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
-
 PROJECT_DIR = Path(__file__).resolve().parent
 VECTOR_DB_ROOT = PROJECT_DIR / "vector_db"
 COLLECTION_NAME = "clip_image_embeddings"
@@ -94,7 +93,7 @@ def query_image(image_path: Path, top_k: int = 5):
 
     print(f"Query: {image_path}")
     print(f"Predicted label: {pred_name}")
-    print("")
+    print()
     print("Top neighbors:")
     for i, (meta, dist) in enumerate(zip(neighbors, distances), start=1):
         cname = meta.get("class_name", "cats" if int(meta.get("label", 0)) == 0 else "dogs")

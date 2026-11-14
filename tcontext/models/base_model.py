@@ -5,11 +5,10 @@ Standardizes training, inference, feature extraction, and profiling across all a
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader
 
 
@@ -24,9 +23,8 @@ class BaseClassifier(ABC):
     @abstractmethod
     def build_model(self) -> nn.Module:
         """Construct the underlying neural architecture."""
-        pass
 
-    def get_param_count(self) -> Dict[str, int]:
+    def get_param_count(self) -> dict[str, int]:
         """Return total, trainable, and frozen parameter counts."""
         if self.model is None:
             return {"total": 0, "trainable": 0, "frozen": 0}
@@ -59,7 +57,7 @@ class BaseClassifier(ABC):
         weight_decay: float = 0.0001,
         patience: int = 3,
         verbose: bool = False
-    ) -> Dict[str, list]:
+    ) -> dict[str, list]:
         """Train classification head with early stopping."""
         if self.model is None:
             self.build_model()
@@ -155,7 +153,7 @@ class BaseClassifier(ABC):
         weight_decay: float = 0.0001,
         patience: int = 4,
         verbose: bool = True
-    ) -> Dict[str, list]:
+    ) -> dict[str, list]:
         """
         Two-stage fine-tuning:
         Phase 1: Linear probe warmup while backbone remains frozen.
@@ -283,4 +281,3 @@ class BaseClassifier(ABC):
     @abstractmethod
     def extract_features(self, loader: DataLoader) -> np.ndarray:
         """Extract high-dimensional feature embeddings."""
-        pass

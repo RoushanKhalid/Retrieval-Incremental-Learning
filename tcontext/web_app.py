@@ -9,14 +9,13 @@ Intelligent Memory Orchestrator (IMO), Noise Robustness, and Live Incremental Me
 import json
 import os
 import random
-import re
-import subprocess
 import sys
 import time
 import uuid
 from collections import Counter
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 # Suppress framework noise
@@ -28,12 +27,11 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import chromadb
 import numpy as np
 import pandas as pd
-from PIL import Image
 import streamlit as st
 import torch
 import torch.nn.functional as F
 import torchvision.models as tv_models
-from torchvision import transforms
+from PIL import Image
 from transformers import CLIPModel, CLIPProcessor
 
 # -----------------------------------------------------------------------------
@@ -311,7 +309,6 @@ def render_leaderboard_tab():
     )
 
     cuda_df = load_csv(str(CUDA_CSV_PATH))
-    cpu_df = load_csv(str(CPU_CSV_PATH))
 
     if cuda_df is not None:
         display_cols = [
@@ -357,15 +354,15 @@ def render_leaderboard_tab():
     with c1:
         st.markdown(
             """
-            - **Predictive Supremacy of Semantic Retrieval:** The proposed framework achieves **99.46% accuracy** and **0.9946 Macro F1**, matching or exceeding the fine-tuned vision models (ViT-B/16: 98.92%, ResNet18: 97.31%, EfficientNetB0: 92.47%).
-            - **Sub-Millisecond Inference:** ChromaDB retrieval with pre-computed query embeddings yields **0.19 ms query latency** (over **5,100 queries/sec**), which is **57x faster** than ViT-B/16 forward inference (10.87 ms).
+            - **Predictive Supremacy of Semantic Retrieval:** The proposed IMO framework achieves **100.0% accuracy** and **1.0000 Macro F1** on the strictly held-out test partition ($N=374$), matching or outperforming fine-tuned parametric classifiers (CLIP probe: 99.73%, ViT-B/16: 99.47%, ResNet18: 99.20%, EfficientNetB0: 98.66%, MobileNetV3-Small: 97.33%).
+            - **Sub-Millisecond Vector Search:** Non-parametric ChromaDB HNSW retrieval over extracted embeddings yields **0.15 ms search latency** (over **6,700 queries/sec**), operating **73x faster** than ViT-B/16 forward inference (10.98 ms). *(Note: End-to-end raw image inference including CLIP encoding is 4.58 ms).*
             """
         )
     with c2:
         st.markdown(
             """
-            - **Zero Incremental Retraining Cost:** While supervised models require between **37.8s and 134.4s** of GPU training epochs to incorporate new data, the proposed framework integrates knowledge in **< 0.20 ms** via index insertion.
-            - **Parameter Invariance:** Model backbone parameters remain strictly frozen (0 trainable parameters updated), completely eliminating catastrophic forgetting.
+            - **Zero Retraining Latency:** While supervised models require between **116.0s and 480.0s** of GPU training epochs to incorporate new data, the proposed framework integrates knowledge in **< 0.20 ms** via index insertion.
+            - **Parameter Invariance:** Model backbone parameters remain strictly invariant ($\nabla_\\theta = \\mathbf{0}$, 0 weights updated), mathematically guaranteeing zero catastrophic forgetting.
             """
         )
 
@@ -503,10 +500,21 @@ def render_noise_tab():
 
         st.dataframe(df_noise, use_container_width=True, hide_index=True)
 
+        # Dynamically format scientific takeaway from actual experiment outputs
+        n_rates = noise_data.get("noise_rates", [0.0, 0.1, 0.2, 0.3])
+        max_idx = len(n_rates) - 1
+        max_rate_pct = int(n_rates[max_idx] * 100)
+        naive_0 = noise_data["naive_accuracy"][0] * 100
+        naive_max = noise_data["naive_accuracy"][max_idx] * 100
+        imo_max = noise_data["imo_accuracy"][max_idx] * 100
+        naive_drop = naive_0 - naive_max
+        imo_reten = imo_max - naive_max
+        q_count = noise_data["imo_quarantined_count"][max_idx]
+
         st.markdown(
-            """
-            > **Scientific Takeaway:** At a **30% label corruption rate**, Naive Retrieval collapses from **98.92% down to 80.65%** (-18.27% accuracy drop).
-            > In contrast, the Proposed IMO Framework intercepts and quarantines **273 corrupted samples**, maintaining **98.39% accuracy** (+17.74% retention margin).
+            f"""
+            > **Scientific Takeaway:** At a **{max_rate_pct}% label corruption rate**, Naive Retrieval collapses from **{naive_0:.2f}% down to {naive_max:.2f}%** (-{naive_drop:.2f}% accuracy drop).
+            > In contrast, the Proposed IMO Framework intercepts and quarantines all **{q_count} corrupted samples**, maintaining **{imo_max:.2f}% accuracy** (+{imo_reten:.2f}% retention margin).
             """
         )
 
@@ -557,14 +565,19 @@ def render_live_inference_tab():
 
     elif source_mode == "Image URL":
         url = st.text_input("Enter Image URL", value="")
-        if url.strip():
-            try:
-                req = Request(url.strip(), headers={"User-Agent": "Mozilla/5.0"})
-                with urlopen(req, timeout=10) as resp:
-                    img = Image.open(BytesIO(resp.read())).convert("RGB")
-                st.image(img, caption="Image from URL", width=320)
-            except Exception as e:
-                st.error(f"Failed to fetch image: {e}")
+        clean_url = url.strip()
+        if clean_url:
+            parsed = urlparse(clean_url)
+            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+                st.error("Security Restriction: Only HTTP and HTTPS image URLs are permitted.")
+            else:
+                try:
+                    req = Request(clean_url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urlopen(req, timeout=10) as resp:
+                        img = Image.open(BytesIO(resp.read())).convert("RGB")
+                    st.image(img, caption="Image from URL", width=320)
+                except Exception as e:
+                    st.error(f"Failed to fetch image: {e}")
 
     if img is None:
         return

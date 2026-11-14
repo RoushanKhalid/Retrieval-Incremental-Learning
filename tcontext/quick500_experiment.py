@@ -5,13 +5,14 @@ import random
 import shutil
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 
 import chromadb
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -20,6 +21,7 @@ import seaborn as sns
 import tensorflow as tf
 import torch
 import torch.nn.functional as F
+from dataset_utils import get_dataset_root
 from PIL import Image
 from sklearn.metrics import (
     accuracy_score,
@@ -31,9 +33,6 @@ from sklearn.metrics import (
 )
 from tensorflow.keras import layers
 from transformers import CLIPModel, CLIPProcessor
-
-from dataset_utils import get_dataset_root
-
 
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
@@ -479,15 +478,15 @@ def run(seed: int, query_image: str | None = None):
             "width_mean": float(np.mean(w)),
             "width_std": float(np.std(w)),
             "classwise_stats": eda_by_class,
-            "train_samples": int(len(train_labels)),
-            "test_samples": int(len(val_labels)),
+            "train_samples": len(train_labels),
+            "test_samples": len(val_labels),
         },
         "classifier": {
             "train_seconds": float(train_seconds),
             "model_size_mb": model_size_mb,
             "total_params": total_params,
             "trainable_params": trainable_params,
-            "epochs_ran": int(len(history.history["loss"])),
+            "epochs_ran": len(history.history["loss"]),
             "batch_size": BATCH_SIZE,
             "image_size": IMG_SIZE,
             **clf_metrics,
@@ -501,7 +500,7 @@ def run(seed: int, query_image: str | None = None):
             "db_build_seconds": float(db_build_seconds),
             "avg_add_image_seconds": avg_retrieval_add_seconds,
             "embedding_dim": int(train_emb.shape[1]),
-            "indexed_vectors": int(len(train_paths)),
+            "indexed_vectors": len(train_paths),
             "k": 5,
             "encoder": clip_model_name,
             "vector_db": "chroma",

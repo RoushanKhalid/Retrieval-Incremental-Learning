@@ -4,10 +4,10 @@ import re
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
-
 
 APP_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = APP_DIR

@@ -35,11 +35,14 @@ $pythonExe = Get-PythonPath
 Write-Host "Using Python: $pythonExe" -ForegroundColor Gray
 Write-Host "Launching Streamlit app on http://localhost:8501"
 
-# Kill anything already listening on port 8501
+# Safely free port 8501 if held by previous Streamlit/Python process
 $occupied = Get-NetTCPConnection -LocalPort 8501 -State Listen -ErrorAction SilentlyContinue
 if ($occupied) {
     $occupied | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object {
-        Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+        $procObj = Get-Process -Id $_ -ErrorAction SilentlyContinue
+        if ($procObj -and ($procObj.ProcessName -match "python|streamlit")) {
+            Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+        }
     }
     Start-Sleep -Seconds 1
 }

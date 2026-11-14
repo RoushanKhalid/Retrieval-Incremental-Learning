@@ -4,11 +4,12 @@ Measures latency (mean, median, p95), throughput, RAM (Windows ctypes), VRAM, an
 """
 
 import ctypes
-from ctypes import wintypes
 import os
 import platform
 import time
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from ctypes import wintypes
+from typing import Any
 
 import numpy as np
 import torch
@@ -27,6 +28,19 @@ class PROCESS_MEMORY_COUNTERS_EX(ctypes.Structure):
         ("PagefileUsage", ctypes.c_size_t),
         ("PeakPagefileUsage", ctypes.c_size_t),
     ]
+
+
+# Configure 64-bit Windows ctypes prototypes to prevent HANDLE truncation
+try:
+    ctypes.windll.kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    ctypes.windll.psapi.GetProcessMemoryInfo.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(PROCESS_MEMORY_COUNTERS_EX),
+        wintypes.DWORD
+    ]
+    ctypes.windll.psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+except Exception:
+    pass
 
 
 def get_current_process_ram_mb() -> float:
@@ -55,7 +69,7 @@ def get_peak_process_ram_mb() -> float:
     return 0.0
 
 
-def get_hardware_info(device_str: str = "cpu") -> Dict[str, Any]:
+def get_hardware_info(device_str: str = "cpu") -> dict[str, Any]:
     """Inspect and return current hardware environment details."""
     info = {
         "os": platform.system(),
@@ -91,7 +105,7 @@ class ResourceProfiler:
         timed_runs: int = 20,
         device: str = "cpu",
         num_samples_per_run: int = 1
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Run warm-up and timed inference iterations.
         Computes mean, median, p95 latency in ms, and throughput in samples/sec.
@@ -102,7 +116,7 @@ class ResourceProfiler:
             if "cuda" in str(device) and torch.cuda.is_available():
                 torch.cuda.synchronize()
 
-        latencies_ms: List[float] = []
+        latencies_ms: list[float] = []
         ram_before = get_current_process_ram_mb()
 
         if "cuda" in str(device) and torch.cuda.is_available():

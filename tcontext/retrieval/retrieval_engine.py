@@ -5,12 +5,12 @@ Retrieval Engine comparing Naive Vector Retrieval against IMO-enhanced Retrieval
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from .imo import IntelligentMemoryOrchestrator
 from .vector_store import ChromaVectorStore
@@ -42,7 +42,7 @@ class MetricRetrievalAdapter(nn.Module):
     def fit_adapter(
         self,
         train_embeddings: np.ndarray,
-        train_labels: List[int],
+        train_labels: list[int],
         epochs: int = 15,
         lr: float = 0.001,
         batch_size: int = 64,
@@ -90,11 +90,11 @@ class MetricRetrievalAdapter(nn.Module):
 
 def tune_retrieval_hyperparameters(
     val_embeddings: np.ndarray,
-    val_labels: List[int],
+    val_labels: list[int],
     vector_store: ChromaVectorStore,
-    k_candidates: List[int] = [1, 3, 5, 7, 9],
-    base_probs: Optional[np.ndarray] = None
-) -> Dict[str, Any]:
+    k_candidates: list[int] = [1, 3, 5, 7, 9],
+    base_probs: np.ndarray | None = None
+) -> dict[str, Any]:
     """
     Fine-tunes retrieval hyperparameters (k, weighting, alpha) on the validation partition.
     """
@@ -152,7 +152,7 @@ class RetrievalFramework:
         self,
         persist_dir: Path | str,
         collection_name: str = "clip_image_embeddings",
-        imo: Optional[IntelligentMemoryOrchestrator] = None,
+        imo: IntelligentMemoryOrchestrator | None = None,
         top_k: int = 5
     ):
         self.vector_store = ChromaVectorStore(persist_dir, collection_name=collection_name)
@@ -162,10 +162,10 @@ class RetrievalFramework:
     def build_memory(
         self,
         embeddings: np.ndarray,
-        labels: List[int],
-        paths: List[Path | str],
+        labels: list[int],
+        paths: list[Path | str],
         use_imo: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Build or populate vector memory with candidate embeddings.
         If use_imo is True, runs each sample through the IMO gating pipeline.
@@ -227,9 +227,9 @@ class RetrievalFramework:
     def query(
         self,
         query_embeddings: np.ndarray,
-        base_probs: Optional[np.ndarray] = None,
+        base_probs: np.ndarray | None = None,
         use_evidence_fusion: bool = False
-    ) -> Tuple[np.ndarray, np.ndarray, List[List[int]], List[List[float]]]:
+    ) -> tuple[np.ndarray, np.ndarray, list[list[int]], list[list[float]]]:
         """
         Query vector memory for nearest neighbors.
         Returns (predictions, probabilities, neighbor_labels, neighbor_distances).

@@ -6,9 +6,7 @@ Provides deterministic 3-way stratified split: Train (70%), Val (15%), Test (15%
 import json
 import random
 from pathlib import Path
-from typing import Dict, List, Tuple
 
-import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
@@ -18,7 +16,7 @@ from torchvision import transforms
 class CatsDogsDataset(Dataset):
     """PyTorch Dataset for Cat vs Dog image classification."""
 
-    def __init__(self, file_paths: List[Path], labels: List[int], transform=None):
+    def __init__(self, file_paths: list[Path], labels: list[int], transform=None):
         self.file_paths = file_paths
         self.labels = labels
         self.transform = transform
@@ -26,7 +24,7 @@ class CatsDogsDataset(Dataset):
     def __len__(self) -> int:
         return len(self.file_paths)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int, str]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int, str]:
         path = self.file_paths[idx]
         label = self.labels[idx]
         with Image.open(path) as img:
@@ -38,7 +36,7 @@ class CatsDogsDataset(Dataset):
         return tensor, label, str(path)
 
 
-def get_default_transforms(image_size: Tuple[int, int] = (224, 224)):
+def get_default_transforms(image_size: tuple[int, int] = (224, 224)):
     """Return train and eval transforms."""
     normalize = transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
@@ -69,7 +67,7 @@ def prepare_stratified_split(
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
     cache_file: Path | None = None
-) -> Dict[str, Tuple[List[Path], List[int]]]:
+) -> dict[str, tuple[list[Path], list[int]]]:
     """
     Produce a deterministic 3-way stratified partition: train, validation, and test.
     Ensures identical sample distribution across all downstream models.
@@ -86,7 +84,7 @@ def prepare_stratified_split(
         }
 
     classes = sorted([p.name for p in data_dir.iterdir() if p.is_dir()])
-    splits: Dict[str, Dict[str, list]] = {
+    splits: dict[str, dict[str, list]] = {
         "train": {"paths": [], "labels": []},
         "val": {"paths": [], "labels": []},
         "test": {"paths": [], "labels": []},
@@ -144,10 +142,10 @@ def get_dataloaders(
     data_dir: Path,
     batch_size: int = 32,
     seed: int = 777,
-    image_size: Tuple[int, int] = (224, 224),
+    image_size: tuple[int, int] = (224, 224),
     num_workers: int = 0,
     cache_file: Path | None = None
-) -> Tuple[Dict[str, DataLoader], Dict[str, Tuple[List[Path], List[int]]]]:
+) -> tuple[dict[str, DataLoader], dict[str, tuple[list[Path], list[int]]]]:
     """Build PyTorch DataLoaders for train, val, and test splits."""
     splits = prepare_stratified_split(
         data_dir=data_dir,

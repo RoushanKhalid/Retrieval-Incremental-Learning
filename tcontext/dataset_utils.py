@@ -1,9 +1,9 @@
-from pathlib import Path
 import shutil
 import zipfile
+from pathlib import Path
 
-from PIL import Image
 import tensorflow as tf
+from PIL import Image
 
 
 def _find_local_tfds_zip() -> Path:

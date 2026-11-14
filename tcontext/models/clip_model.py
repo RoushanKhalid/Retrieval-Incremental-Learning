@@ -3,12 +3,11 @@ CLIP Model Wrapper: Visual encoder, zero-shot classifier, and linear probe class
 Provides semantic representation and feature extraction via openai/clip-vit-base-patch32.
 """
 
-from typing import List, Tuple
 
 import numpy as np
 import torch
-import torch.nn as nn
 from PIL import Image
+from torch import nn
 from torch.utils.data import DataLoader
 from transformers import CLIPModel, CLIPProcessor
 
@@ -35,6 +34,8 @@ class CLIPWrapper(BaseClassifier):
             self.processor = CLIPProcessor.from_pretrained(model_name)
             self.clip_model = CLIPModel.from_pretrained(model_name, use_safetensors=True)
         self.build_model()
+        if self.model is not None:
+            self.model.to(self.device)
 
     def build_model(self) -> nn.Module:
         for param in self.clip_model.parameters():
@@ -91,7 +92,7 @@ class CLIPWrapper(BaseClassifier):
                 features.append(emb.cpu().numpy())
         return np.concatenate(features, axis=0)
 
-    def extract_features_from_paths(self, paths: List[str], batch_size: int = 32) -> np.ndarray:
+    def extract_features_from_paths(self, paths: list[str], batch_size: int = 32) -> np.ndarray:
         """Extract features directly from image file paths."""
         self.clip_model.to(self.device)
         self.clip_model.eval()
@@ -116,7 +117,7 @@ class CLIPWrapper(BaseClassifier):
 
         return np.vstack(all_embeddings)
 
-    def zero_shot_predict(self, loader: DataLoader, class_descriptions: List[str]) -> np.ndarray:
+    def zero_shot_predict(self, loader: DataLoader, class_descriptions: list[str]) -> np.ndarray:
         """Evaluate zero-shot text-image classification."""
         self.clip_model.to(self.device)
         self.clip_model.eval()

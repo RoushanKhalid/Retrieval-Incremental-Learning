@@ -36,9 +36,11 @@ All models were evaluated against the exact same hold-out test set ($N=374$, 187
 | **ResNet18** | Residual CNN Baseline | 99.20% | 0.9894 | 0.9947 | 0.9920 | 0.9990 | 149.20 s | 3.69 ms | 271.0 | 11,177,538 | 42.71 MB |
 | **ViT-B/16** | Vision Transformer | 99.47% | 0.9947 | 0.9947 | 0.9947 | 0.9997 | 479.95 s | 10.98 ms | 91.0 | 85,800,194 | 327.36 MB |
 | **CLIP (ViT-B/32)** | Foundation Vision-Language | 99.73% | 0.9947 | 1.0000 | 0.9973 | 1.0000 | 173.16 s | 4.43 ms | 225.7 | 151,278,339 | 577.23 MB |
-| **Naive Retrieval** | Vector Index (ChromaDB) | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.80 s** | **0.18 ms** | **5,653.9** | **0 (Frozen)** | 11.61 MB |
-| **Fine-Tuned Retrieval** | Contrastive Adapter + DB | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.69 s** | **0.14 ms** | **7,152.5** | 526,337 | 11.60 MB |
-| **Proposed IMO Framework** | Vector Index + IMO Orchestration | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **1.27 s** | **0.15 ms** | **6,726.0** | **0 (Frozen)** | 11.59 MB |
+| **Naive Retrieval** | Vector Index (ChromaDB) | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.80 s** | **0.18 ms\*** | **5,653.9\*** | **0 (Frozen)** | 11.61 MB |
+| **Fine-Tuned Retrieval** | Contrastive Adapter + DB | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **0.69 s** | **0.14 ms\*** | **7,152.5\*** | 526,337 | 11.60 MB |
+| **Proposed IMO Framework** | Vector Index + IMO Orchestration | **100.0%** | **1.0000** | **1.0000** | **1.0000** | **1.0000** | **1.27 s** | **0.15 ms\*** | **6,726.0\*** | **0 (Frozen)** | 11.59 MB |
+
+*\*Methodological Disclosure:* The 0.14 -- 0.18 ms latency represents non-parametric HNSW index search over pre-extracted 512-dim visual embeddings. For raw end-to-end image inference, adding the invariant CLIP ViT-B/32 encoder forward pass yields **4.58 ms on GPU** (4.43 ms encode + 0.15 ms search) and **17.55 ms on CPU** (17.40 ms encode + 0.15 ms search).
 
 ---
 

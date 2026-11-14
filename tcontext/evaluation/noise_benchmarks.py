@@ -4,10 +4,9 @@ Evaluates hypothesis H1: IMO-enabled retrieval significantly outperforms naive c
 Compares accuracy retention and quarantine behavior across 0%, 10%, 20%, 30% synthetic label corruption.
 """
 
-import copy
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 
@@ -16,7 +15,7 @@ from tcontext.retrieval.imo import IntelligentMemoryOrchestrator
 from tcontext.retrieval.vector_store import ChromaVectorStore
 
 
-def inject_label_noise(labels: List[int], noise_rate: float, seed: int = 777) -> List[int]:
+def inject_label_noise(labels: list[int], noise_rate: float, seed: int = 777) -> list[int]:
     """Invert binary labels at a fixed noise rate."""
     if noise_rate <= 0.0:
         return list(labels)
@@ -31,19 +30,19 @@ def inject_label_noise(labels: List[int], noise_rate: float, seed: int = 777) ->
 
 def run_noise_experiment(
     train_embeddings: np.ndarray,
-    train_labels: List[int],
-    train_paths: List[Path | str],
+    train_labels: list[int],
+    train_paths: list[Path | str],
     test_embeddings: np.ndarray,
-    test_labels: List[int],
-    noise_rates: List[float] = [0.0, 0.10, 0.20, 0.30],
+    test_labels: list[int],
+    noise_rates: list[float] = [0.0, 0.10, 0.20, 0.30],
     seed: int = 777,
     temp_dir: Path | str = "tcontext/vector_db/noise_exp"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Run noise corruption benchmark comparing Naive Retrieval vs IMO-enhanced Retrieval.
     """
     temp_path = Path(temp_dir)
-    results: Dict[str, list] = {
+    results: dict[str, list] = {
         "noise_rates": noise_rates,
         "naive_accuracy": [],
         "naive_f1": [],
@@ -96,15 +95,15 @@ def run_noise_experiment(
             outlier_distance_threshold=0.45
         )
 
-        # Seed both prototypes and initial store with clean anchor samples
+        # Seed running class prototypes with clean bootstrap anchors
         bootstrap_n = min(40, len(train_labels))
-        accepted_embs = list(train_embeddings[:bootstrap_n])
-        accepted_labels = list(train_labels[:bootstrap_n])
-        accepted_ids = [f"bootstrap_{k}" for k in range(bootstrap_n)]
-        accepted_metas = [{"label": int(l)} for l in train_labels[:bootstrap_n]]
-
         for k in range(bootstrap_n):
             imo.update_prototype(train_embeddings[k], train_labels[k])
+
+        accepted_embs: list = []
+        accepted_labels: list = []
+        accepted_ids: list = []
+        accepted_metas: list = []
 
         def in_memory_query(query_vec, n_results=5):
             if len(accepted_embs) < n_results:

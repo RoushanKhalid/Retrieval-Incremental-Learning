@@ -4,14 +4,13 @@ Generates publication-quality comparative figures.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import seaborn as sns
 
 
 def plot_comparative_metrics(
@@ -109,7 +108,7 @@ def plot_cpu_vs_gpu_speedup(
 
 
 def plot_noise_robustness(
-    noise_results: Dict[str, Any],
+    noise_results: dict[str, Any],
     output_path: Path | str,
     title: str = "Resistance to Injected Label Noise: Naive vs Proposed IMO"
 ):

@@ -3,7 +3,7 @@ Classification Metrics Suite for Multi-Model Evaluation.
 Calculates Accuracy, Precision, Recall, F1, ROC-AUC, and Confusion Matrix.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 from sklearn.metrics import (
@@ -17,23 +17,29 @@ from sklearn.metrics import (
 def calculate_classification_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    y_prob: Optional[np.ndarray] = None
-) -> Dict[str, Any]:
+    y_prob: np.ndarray | None = None
+) -> dict[str, Any]:
     """Calculate comprehensive predictive performance metrics."""
     y_true = np.asarray(y_true, dtype=int)
     y_pred = np.asarray(y_pred, dtype=int)
 
-    precision, recall, f1, _ = precision_recall_fscore_support(
+    precision_bin, recall_bin, f1_bin, _ = precision_recall_fscore_support(
         y_true, y_pred, average="binary", zero_division=0
+    )
+    precision_mac, recall_mac, f1_mac, _ = precision_recall_fscore_support(
+        y_true, y_pred, average="macro", zero_division=0
     )
     accuracy = accuracy_score(y_true, y_pred)
     cm = confusion_matrix(y_true, y_pred).tolist()
 
     metrics = {
         "accuracy": float(accuracy),
-        "precision": float(precision),
-        "recall": float(recall),
-        "f1": float(f1),
+        "precision": float(precision_bin),
+        "recall": float(recall_bin),
+        "f1": float(f1_bin),
+        "macro_precision": float(precision_mac),
+        "macro_recall": float(recall_mac),
+        "macro_f1": float(f1_mac),
         "confusion_matrix": cm,
     }
 

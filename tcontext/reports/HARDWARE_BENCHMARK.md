@@ -43,9 +43,11 @@ Empirical measurements recorded in `tcontext/artifacts/benchmark_summary.json` a
 | **ResNet18** | 3.69 ms | 271.0 img/s | 10.07 ms | 99.3 img/s | **2.73 $\times$** | 370.00 MB | 11,177,538 | 42.71 MB |
 | **ViT-B/16** | 10.98 ms | 91.0 img/s | 62.40 ms | 16.0 img/s | **5.68 $\times$** | 1,066.48 MB | 85,800,194 | 327.36 MB |
 | **CLIP (ViT-B/32)** | 4.43 ms | 225.7 img/s | 17.40 ms | 57.5 img/s | **3.93 $\times$** | 1,541.63 MB | 151,278,339 | 577.23 MB |
-| **Naive Retrieval** | **0.18 ms** | **5,653.9 img/s** | **0.18 ms** | **5,653.9 img/s** | **1.00 $\times$** | **0.00 MB** | **0 (Frozen)** | 11.61 MB |
-| **Fine-Tuned Retrieval** | **0.14 ms** | **7,152.5 img/s** | **0.14 ms** | **7,152.5 img/s** | **1.00 $\times$** | **0.00 MB** | 526,337 | 11.60 MB |
-| **Proposed IMO Framework** | **0.15 ms** | **6,726.0 img/s** | **0.15 ms** | **6,726.0 img/s** | **1.00 $\times$** | **0.00 MB** | **0 (Frozen)** | 11.59 MB |
+| **Naive Retrieval** | **0.18 ms\*** | **5,653.9 img/s\*** | **0.18 ms\*** | **5,653.9 img/s\*** | **1.00 $\times$** | **0.00 MB** | **0 (Frozen)** | 11.61 MB |
+| **Fine-Tuned Retrieval** | **0.14 ms\*** | **7,152.5 img/s\*** | **0.14 ms\*** | **7,152.5 img/s\*** | **1.00 $\times$** | **0.00 MB** | 526,337 | 11.60 MB |
+| **Proposed IMO Framework** | **0.15 ms\*** | **6,726.0 img/s\*** | **0.15 ms\*** | **6,726.0 img/s\*** | **1.00 $\times$** | **0.00 MB** | **0 (Frozen)** | 11.59 MB |
+
+*\*Note on Vector Retrieval Latency:* The 0.14 -- 0.18 ms query latency represents HNSW index lookup given pre-extracted visual embeddings. True end-to-end inference from a raw pixel tensor includes the invariant CLIP encoder forward pass (4.43 ms GPU / 17.40 ms CPU), yielding **4.58 ms on GPU** and **17.55 ms on CPU**.
 
 $$\text{Speedup Factor} = \frac{\text{CPU Latency}}{\text{GPU Latency}}$$
 

@@ -16,18 +16,16 @@ under both GPU-Accelerated and CPU-Only execution environments on the full datas
 
 import argparse
 import json
-import os
 import shutil
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import torch
-import yaml
 
 # Set up project root in path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -39,7 +37,6 @@ from tcontext.evaluation.noise_benchmarks import run_noise_experiment
 from tcontext.evaluation.resource_tracker import (
     ResourceProfiler,
     get_hardware_info,
-    get_peak_process_ram_mb,
 )
 from tcontext.models.clip_model import CLIPWrapper
 from tcontext.models.cnn_models import (
@@ -79,8 +76,8 @@ def run_benchmark(
     quick_mode: bool = False,
     epochs: int = 15,
     fine_tune: bool = True,
-    data_dir: Optional[str] = None
-) -> Dict[str, Any]:
+    data_dir: str | None = None
+) -> dict[str, Any]:
     """Execute end-to-end multi-model thesis benchmark with fine-tuning on full data."""
     t_start = time.time()
     artifacts_dir = PROJECT_ROOT / "tcontext" / "artifacts"
@@ -219,7 +216,7 @@ def run_benchmark(
         print(f"Results for {model_name}: Acc={metrics['accuracy']:.4f}, F1={metrics['f1']:.4f}, Latency={profiling['avg_ms_per_sample']:.2f} ms/img, TrainTime={train_time:.1f}s")
 
     # 4. Retrieval Benchmarks: Naive Retrieval vs Metric Adapter vs Proposed IMO Framework
-    print(f"\n--- Extracting Feature Embeddings for Retrieval Models ---")
+    print("\n--- Extracting Feature Embeddings for Retrieval Models ---")
     clip_clf = trained_models["CLIP (ViT-B/32)"]
     train_embeddings = clip_clf.extract_features_from_paths([str(p) for p in train_paths])
     val_embeddings = clip_clf.extract_features_from_paths([str(p) for p in val_paths])
