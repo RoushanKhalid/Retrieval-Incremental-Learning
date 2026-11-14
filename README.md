@@ -1,4 +1,4 @@
-# Retrieval-Incremental-Learning
+# A Retrieval-Based Multi-Modal Learning Framework for Incremental Knowledge Integration Without Model Fine-Tuning
 
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![PyTorch 2.5.1+cu121](https://img.shields.io/badge/PyTorch-2.5.1%2Bcu121-orange.svg)](https://pytorch.org/)
@@ -7,10 +7,11 @@
 [![ChromaDB](https://img.shields.io/badge/VectorDB-ChromaDB-purple.svg)](https://www.trychroma.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Official Implementation and Experimental Artifacts for the Research Paper:**  
-*"A Retrieval-Based Multi-Modal Learning Framework for Incremental Knowledge Integration Without Model Fine-Tuning"*  
+**Thesis Research Repository & Official Implementation**  
+GitHub Repository: [`RoushanKhalid/Thesis`](https://github.com/RoushanKhalid/Thesis)  
 Target Journal: *Journal of Intelligent Information Systems (Springer JIIS)*  
-GitHub Repository: [`RoushanKhalid/Retrieval-Incremental-Learning`](https://github.com/RoushanKhalid/Retrieval-Incremental-Learning)
+Author: Sk. Roushan Khalid (ID: 221-35-877)  
+Department: Software Engineering, Daffodil International University
 
 ---
 
@@ -87,7 +88,7 @@ Evaluated under symmetric synthetic label noise across all 1,752 training instan
 ## 🗂️ Repository Architecture
 
 ```
-Retrieval-Incremental-Learning/
+Thesis/
 ├── configs/                         # Experiment, hardware, and model configs
 ├── paper_latex/                     # Complete Springer Nature JIIS LaTeX paper source
 ├── paper_latex.zip                  # Ready-to-compile archive for Overleaf / LaTeX
