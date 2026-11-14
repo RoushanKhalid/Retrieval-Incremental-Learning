@@ -73,10 +73,11 @@ function Invoke-PythonScript {
 $hasBenchmarkResults = (Test-Path $summaryPath) -and (Test-Path $cudaCsv)
 
 if ($ForceRebuild -or -not $hasBenchmarkResults) {
-    Write-Host "Running End-to-End Multi-Model Benchmark (Seed: $Seed)..." -ForegroundColor Cyan
-    Invoke-PythonScript -ScriptPath "tcontext\experiments\run_benchmark.py" -Arguments @("--seed", "$Seed") -StdOutPath $runLog -StepName "multi-model benchmark pipeline"
+    Write-Host "Running End-to-End Multi-Model Benchmark (Seed: $Seed, Epochs: $Epochs)..." -ForegroundColor Cyan
+    Invoke-PythonScript -ScriptPath "tcontext\experiments\run_benchmark.py" -Arguments @("--seed", "$Seed", "--epochs", "$Epochs") -StdOutPath $runLog -StepName "multi-model benchmark pipeline"
     Copy-Item -Path $runLog -Destination $latestRunLog -Force
-} else {
+}
+else {
     Write-Host "Verified existing benchmark summary and artifacts in tcontext\artifacts." -ForegroundColor Green
 }
 
@@ -109,7 +110,8 @@ if ($isReady) {
     $url = "http://localhost:$Port"
     Write-Host "Dashboard online: $url" -ForegroundColor Green
     Start-Process $url | Out-Null
-} else {
+}
+else {
     Write-Warning "Dashboard did not open port within $maxWaitSeconds seconds. Check logs."
 }
 

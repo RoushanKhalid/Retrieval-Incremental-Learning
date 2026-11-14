@@ -28,8 +28,12 @@ class CLIPWrapper(BaseClassifier):
         self.model_name = model_name
         self.num_classes = num_classes
         self.embedding_dim = 512
-        self.processor = CLIPProcessor.from_pretrained(model_name)
-        self.clip_model = CLIPModel.from_pretrained(model_name, use_safetensors=True)
+        try:
+            self.processor = CLIPProcessor.from_pretrained(model_name, local_files_only=True)
+            self.clip_model = CLIPModel.from_pretrained(model_name, use_safetensors=True, local_files_only=True)
+        except Exception:
+            self.processor = CLIPProcessor.from_pretrained(model_name)
+            self.clip_model = CLIPModel.from_pretrained(model_name, use_safetensors=True)
         self.build_model()
 
     def build_model(self) -> nn.Module:
@@ -59,6 +63,16 @@ class CLIPWrapper(BaseClassifier):
 
         self.model = FullModel(self.clip_model, self.probe)
         return self.model
+
+    def unfreeze_backbone(self, unfreeze: bool = True):
+        """Unfreeze visual projection and top transformer block for fine-tuning."""
+        if hasattr(self.clip_model, "visual_projection"):
+            for p in self.clip_model.visual_projection.parameters():
+                p.requires_grad = unfreeze
+        if hasattr(self.clip_model, "vision_model"):
+            for layer in self.clip_model.vision_model.encoder.layers[-2:]:
+                for p in layer.parameters():
+                    p.requires_grad = unfreeze
 
     def extract_features(self, loader: DataLoader) -> np.ndarray:
         """Extract 512-dimensional normalized CLIP visual embeddings."""

@@ -1,16 +1,17 @@
 """
 Central Unified Experiment Pipeline for Multi-Model Benchmarking.
 Evaluates:
-1. MobileNetV3-Small
-2. EfficientNetB0
-3. ResNet18
-4. ViT-B/16
+1. MobileNetV3-Small (Fine-Tuned)
+2. EfficientNetB0 (Fine-Tuned)
+3. ResNet18 (Fine-Tuned)
+4. ViT-B/16 (Fine-Tuned)
 5. CLIP (ViT-B/32) Linear Probe
 6. Naive Retrieval (CLIP + ChromaDB)
-7. Proposed Framework (CLIP + ChromaDB + IMO)
+7. Fine-Tuned Retrieval (CLIP + Adapter + ChromaDB)
+8. Proposed Framework (CLIP + Adapter + ChromaDB + IMO)
 
 Measures Predictive Performance, Computational Resource Efficiency, and Incremental Memory Robustness
-under both GPU-Accelerated and CPU-Only execution environments.
+under both GPU-Accelerated and CPU-Only execution environments on the full dataset partition.
 """
 
 import argparse
@@ -21,7 +22,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -48,7 +49,11 @@ from tcontext.models.cnn_models import (
 )
 from tcontext.models.vit_model import ViTClassifier
 from tcontext.retrieval.imo import IntelligentMemoryOrchestrator
-from tcontext.retrieval.retrieval_engine import RetrievalFramework
+from tcontext.retrieval.retrieval_engine import (
+    MetricRetrievalAdapter,
+    RetrievalFramework,
+    tune_retrieval_hyperparameters,
+)
 from tcontext.visualization.plot_results import (
     plot_comparative_metrics,
     plot_cpu_vs_gpu_speedup,
@@ -57,18 +62,26 @@ from tcontext.visualization.plot_results import (
 )
 
 
-def load_yaml_config(config_path: Path) -> Dict[str, Any]:
-    with open(config_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+def get_clean_db_path(base_dir: Path, prefix: str, seed: int) -> Path:
+    target_path = base_dir / f"{prefix}_{seed}"
+    if target_path.exists():
+        try:
+            shutil.rmtree(target_path)
+        except Exception:
+            target_path = base_dir / f"{prefix}_{seed}_{int(time.time()*1000)}"
+    target_path.mkdir(parents=True, exist_ok=True)
+    return target_path
 
 
 def run_benchmark(
     seed: int = 777,
     device_mode: str = "auto",
     quick_mode: bool = False,
-    epochs: int = 20
+    epochs: int = 15,
+    fine_tune: bool = True,
+    data_dir: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Execute end-to-end multi-model thesis benchmark."""
+    """Execute end-to-end multi-model thesis benchmark with fine-tuning on full data."""
     t_start = time.time()
     artifacts_dir = PROJECT_ROOT / "tcontext" / "artifacts"
     reports_dir = PROJECT_ROOT / "tcontext" / "reports"
@@ -80,15 +93,22 @@ def run_benchmark(
     # 1. Hardware Detection
     gpu_available = torch.cuda.is_available()
     primary_device = "cuda:0" if (gpu_available and device_mode != "cpu") else "cpu"
-    print(f"=== Starting Multi-Model Benchmark (Seed: {seed}) ===")
+    print(f"=== Starting Multi-Model Benchmark (Seed: {seed}, Fine-Tune: {fine_tune}) ===")
     print(f"Hardware Environment: {get_hardware_info(primary_device)}")
     print(f"Primary Execution Device: {primary_device}")
 
-    # 2. Dataset Preparation (Strict 3-Way Stratified Partition)
-    dataset_dir = PROJECT_ROOT / "tcontext" / "data" / "sampled_25_percent_seed_777"
-    if not dataset_dir.exists():
-        dataset_dir = PROJECT_ROOT / "tcontext" / "data" / "sampled_10_percent"
-    split_cache = artifacts_dir / f"stratified_split_seed_{seed}.json"
+    # 2. Dataset Preparation (Strict 3-Way Stratified Partition on Full Data)
+    if data_dir is not None and Path(data_dir).exists():
+        dataset_dir = Path(data_dir)
+    else:
+        dataset_dir = PROJECT_ROOT / "tcontext" / "data" / "full_dataset"
+        if not dataset_dir.exists():
+            dataset_dir = PROJECT_ROOT / "tcontext" / "data" / "sampled_25_percent_seed_777"
+        if not dataset_dir.exists():
+            dataset_dir = PROJECT_ROOT / "tcontext" / "data" / "sampled_10_percent"
+
+    split_cache = artifacts_dir / f"stratified_split_{dataset_dir.name}_seed_{seed}.json"
+    print(f"Loading Dataset from: {dataset_dir} (Cache: {split_cache.name})")
 
     loaders, splits = get_dataloaders(
         data_dir=dataset_dir,
@@ -101,11 +121,13 @@ def run_benchmark(
     test_loader = loaders["test"]
 
     train_paths, train_labels = splits["train"]
+    val_paths, val_labels = splits["val"]
     test_paths, test_labels = splits["test"]
     test_labels_arr = np.array(test_labels, dtype=int)
-    print(f"Dataset Partitions: Train={len(train_labels)}, Val={len(splits['val'][1])}, Test={len(test_labels)}")
+    val_labels_arr = np.array(val_labels, dtype=int)
+    print(f"Dataset Partitions: Train={len(train_labels)}, Val={len(val_labels)}, Test={len(test_labels)}")
 
-    # Models definition
+    # Model factories definition
     model_factories = {
         "MobileNetV3-Small": lambda dev: MobileNetV3SmallClassifier(device=dev),
         "EfficientNetB0": lambda dev: EfficientNetB0Classifier(device=dev),
@@ -118,27 +140,48 @@ def run_benchmark(
     trained_models = {}
     benchmark_records_primary = []
     base_model_test_probs = {}
+    base_model_val_probs = {}
 
     actual_epochs = 2 if quick_mode else epochs
-    patience = max(5, actual_epochs // 3)
+    warmup_epochs = max(2, actual_epochs // 3) if fine_tune else actual_epochs
+    fine_tune_epochs = (actual_epochs - warmup_epochs) if fine_tune else 0
+    patience = max(3, actual_epochs // 3)
 
     for model_name, factory in model_factories.items():
-        print(f"\n--- Benchmarking {model_name} on {primary_device} ({actual_epochs} epochs) ---")
+        print(f"\n--- Benchmarking {model_name} on {primary_device} ---")
         clf = factory(primary_device)
         param_counts = clf.get_param_count()
         model_size_mb = clf.get_model_size_mb()
 
         t_train_0 = time.time()
-        history = clf.fit(
-            train_loader=train_loader,
-            val_loader=val_loader,
-            epochs=actual_epochs,
-            lr=0.0003,
-            patience=patience,
-            verbose=True
-        )
+        if fine_tune and fine_tune_epochs > 0:
+            print(f"Executing Two-Stage Fine-Tuning: {warmup_epochs} Warmup Epochs + {fine_tune_epochs} Backbone Fine-Tune Epochs")
+            history = clf.fit_with_fine_tuning(
+                train_loader=train_loader,
+                val_loader=val_loader,
+                warmup_epochs=warmup_epochs,
+                fine_tune_epochs=fine_tune_epochs,
+                lr_head=0.0003,
+                lr_backbone=0.00001,
+                patience=patience,
+                verbose=True
+            )
+        else:
+            print(f"Executing Standard Training: {actual_epochs} Epochs")
+            history = clf.fit(
+                train_loader=train_loader,
+                val_loader=val_loader,
+                epochs=actual_epochs,
+                lr=0.0003,
+                patience=patience,
+                verbose=True
+            )
         train_time = time.time() - t_train_0
         trained_models[model_name] = clf
+
+        # Record validation predictions for evidence fusion calibration
+        val_probs = clf.predict_proba(val_loader)
+        base_model_val_probs[model_name] = val_probs
 
         # Evaluate on strictly held-out test split
         test_probs = clf.predict_proba(test_loader)
@@ -149,8 +192,8 @@ def run_benchmark(
         # Profile resource efficiency
         profiling = ResourceProfiler.benchmark_inference(
             fn=lambda: clf.predict_proba(test_loader),
-            warmup_runs=3,
-            timed_runs=10,
+            warmup_runs=2,
+            timed_runs=6,
             device=primary_device,
             num_samples_per_run=len(test_labels)
         )
@@ -173,19 +216,18 @@ def run_benchmark(
             "model_size_mb": model_size_mb,
         }
         benchmark_records_primary.append(record)
-        print(f"Results: Acc={metrics['accuracy']:.4f}, F1={metrics['f1']:.4f}, Latency={profiling['avg_ms_per_sample']:.2f} ms/img, TrainTime={train_time:.1f}s")
+        print(f"Results for {model_name}: Acc={metrics['accuracy']:.4f}, F1={metrics['f1']:.4f}, Latency={profiling['avg_ms_per_sample']:.2f} ms/img, TrainTime={train_time:.1f}s")
 
-    # 4. Retrieval Benchmarks: Naive Retrieval vs Proposed IMO Framework
+    # 4. Retrieval Benchmarks: Naive Retrieval vs Metric Adapter vs Proposed IMO Framework
     print(f"\n--- Extracting Feature Embeddings for Retrieval Models ---")
     clip_clf = trained_models["CLIP (ViT-B/32)"]
     train_embeddings = clip_clf.extract_features_from_paths([str(p) for p in train_paths])
+    val_embeddings = clip_clf.extract_features_from_paths([str(p) for p in val_paths])
     test_embeddings = clip_clf.extract_features_from_paths([str(p) for p in test_paths])
 
-    # 4A. Naive Retrieval (CLIP + ChromaDB)
+    # 4A. Naive Retrieval (CLIP + ChromaDB - Raw Zero-Shot)
     print("Evaluating Naive Retrieval (CLIP + ChromaDB)...")
-    naive_db_path = vector_db_dir / f"naive_chroma_{seed}"
-    if naive_db_path.exists():
-        shutil.rmtree(naive_db_path)
+    naive_db_path = get_clean_db_path(vector_db_dir, "naive_chroma", seed)
     naive_engine = RetrievalFramework(naive_db_path, collection_name="naive_retrieval", top_k=5)
     naive_build_summary = naive_engine.build_memory(
         embeddings=train_embeddings,
@@ -198,8 +240,8 @@ def run_benchmark(
 
     naive_profiling = ResourceProfiler.benchmark_inference(
         fn=lambda: naive_engine.query(test_embeddings),
-        warmup_runs=3,
-        timed_runs=10,
+        warmup_runs=2,
+        timed_runs=6,
         device=primary_device,
         num_samples_per_run=len(test_labels)
     )
@@ -222,13 +264,35 @@ def run_benchmark(
         "model_size_mb": naive_engine.vector_store.get_storage_size_mb(),
     }
     benchmark_records_primary.append(naive_record)
-    print(f"Naive Retrieval: Acc={naive_metrics['accuracy']:.4f}, F1={naive_metrics['f1']:.4f}, Query Latency={naive_profiling['avg_ms_per_sample']:.2f} ms")
+    print(f"Naive Retrieval: Acc={naive_metrics['accuracy']:.4f}, F1={naive_metrics['f1']:.4f}, Latency={naive_profiling['avg_ms_per_sample']:.2f} ms")
 
-    # 4B. Proposed Framework (CLIP + ChromaDB + IMO + Evidence Fusion)
-    print("Evaluating Proposed Framework (CLIP + ChromaDB + IMO + Evidence Fusion)...")
-    imo_db_path = vector_db_dir / f"imo_chroma_{seed}"
-    if imo_db_path.exists():
-        shutil.rmtree(imo_db_path)
+    # 4B. Fine-Tune Retrieval: Train MetricRetrievalAdapter (Contrastive Space Alignment)
+    if fine_tune:
+        print("\n--- Fine-Tuning Retrieval Metric Adapter (Supervised Contrastive Alignment) ---")
+        adapter = MetricRetrievalAdapter(in_features=512, hidden_dim=512)
+        adapter.fit_adapter(
+            train_embeddings=train_embeddings,
+            train_labels=train_labels,
+            epochs=15,
+            lr=0.001,
+            batch_size=64,
+            device=primary_device
+        )
+        torch.save(adapter.state_dict(), artifacts_dir / "metric_retrieval_adapter.pt")
+        print("Metric Retrieval Adapter trained and saved to artifacts/metric_retrieval_adapter.pt")
+
+        train_emb_used = adapter.transform(train_embeddings, device=primary_device)
+        val_emb_used = adapter.transform(val_embeddings, device=primary_device)
+        test_emb_used = adapter.transform(test_embeddings, device=primary_device)
+    else:
+        train_emb_used = train_embeddings
+        val_emb_used = val_embeddings
+        test_emb_used = test_embeddings
+
+    # 4C. Hyperparameter Calibration on Validation Partition (Tuning k and alpha)
+    print("\n--- Calibrating Retrieval Hyperparameters on Validation Partition ---")
+    imo_db_path = get_clean_db_path(vector_db_dir, "imo_chroma", seed)
+
     imo = IntelligentMemoryOrchestrator(
         prototype_consistency_threshold=0.65,
         confidence_gate_threshold=0.75,
@@ -238,25 +302,84 @@ def run_benchmark(
     )
     imo_engine = RetrievalFramework(imo_db_path, collection_name="imo_retrieval", imo=imo, top_k=5)
     imo_build_summary = imo_engine.build_memory(
-        embeddings=train_embeddings,
+        embeddings=train_emb_used,
         labels=train_labels,
         paths=train_paths,
         use_imo=True
     )
 
-    # Use EfficientNetB0 test probabilities for multimodal parametric + non-parametric evidence fusion
-    eff_probs = base_model_test_probs["EfficientNetB0"]
+    eff_val_probs = base_model_val_probs["EfficientNetB0"]
+    eff_test_probs = base_model_test_probs["EfficientNetB0"]
+
+    tuning_summary = tune_retrieval_hyperparameters(
+        val_embeddings=val_emb_used,
+        val_labels=val_labels,
+        vector_store=imo_engine.vector_store,
+        k_candidates=[1, 3, 5, 7, 9],
+        base_probs=eff_val_probs
+    )
+    optimal_k = tuning_summary["optimal_k"]
+    optimal_alpha = tuning_summary["optimal_fusion_alpha"]
+    print(f"Validation Calibration Results: Optimal k={optimal_k}, Optimal Fusion alpha={optimal_alpha:.2f} (Val Acc: {tuning_summary['best_fused_val_accuracy']:.4f})")
+
+    imo_engine.top_k = optimal_k
+    imo.fusion_lambda = optimal_alpha
+
+    # 4D. Fine-Tuned Retrieval Baseline (Adapter + ChromaDB, No IMO Gating, No Parametric Fusion)
+    if fine_tune:
+        print("Evaluating Fine-Tuned Retrieval Adapter (Adapter + ChromaDB)...")
+        ft_db_path = get_clean_db_path(vector_db_dir, "ft_retrieval_chroma", seed)
+        ft_engine = RetrievalFramework(ft_db_path, collection_name="ft_retrieval", top_k=optimal_k)
+        ft_build_summary = ft_engine.build_memory(
+            embeddings=train_emb_used,
+            labels=train_labels,
+            paths=train_paths,
+            use_imo=False
+        )
+        ft_preds, ft_probs, _, _ = ft_engine.query(test_emb_used, use_evidence_fusion=False)
+        ft_metrics = calculate_classification_metrics(test_labels_arr, ft_preds, ft_probs)
+
+        ft_profiling = ResourceProfiler.benchmark_inference(
+            fn=lambda: ft_engine.query(test_emb_used),
+            warmup_runs=2,
+            timed_runs=6,
+            device=primary_device,
+            num_samples_per_run=len(test_labels)
+        )
+
+        ft_record = {
+            "model_name": "Fine-Tuned Retrieval (Adapter + ChromaDB)",
+            "device": primary_device,
+            "accuracy": ft_metrics["accuracy"],
+            "precision": ft_metrics["precision"],
+            "recall": ft_metrics["recall"],
+            "f1": ft_metrics["f1"],
+            "roc_auc": ft_metrics.get("roc_auc", 0.0),
+            "train_time_sec": float(ft_build_summary["build_time_seconds"]),
+            "avg_ms_per_sample": ft_profiling["avg_ms_per_sample"],
+            "throughput_samples_per_sec": ft_profiling["throughput_samples_per_sec"],
+            "peak_vram_mb": 0.0,
+            "peak_ram_mb": ft_profiling["peak_ram_mb"],
+            "total_parameters": sum(p.numel() for p in adapter.parameters()),
+            "trainable_parameters": sum(p.numel() for p in adapter.parameters() if p.requires_grad),
+            "model_size_mb": ft_engine.vector_store.get_storage_size_mb(),
+        }
+        benchmark_records_primary.append(ft_record)
+        print(f"Fine-Tuned Retrieval: Acc={ft_metrics['accuracy']:.4f}, F1={ft_metrics['f1']:.4f}, Latency={ft_profiling['avg_ms_per_sample']:.2f} ms")
+
+    # 4E. Proposed Framework (CLIP + Adapter + ChromaDB + IMO + Evidence Fusion)
+    print("Evaluating Proposed Framework (CLIP + ChromaDB + IMO + Evidence Fusion)...")
     imo_preds, imo_probs, _, _ = imo_engine.query(
-        test_embeddings,
-        base_probs=eff_probs,
+        test_emb_used,
+        base_probs=eff_test_probs,
         use_evidence_fusion=True
     )
     imo_metrics = calculate_classification_metrics(test_labels_arr, imo_preds, imo_probs)
 
     imo_profiling = ResourceProfiler.benchmark_inference(
-        fn=lambda: imo_engine.query(test_embeddings, base_probs=eff_probs, use_evidence_fusion=True),
-        warmup_runs=3,
-        timed_runs=10,
+        fn=lambda: imo_engine.query(test_emb_used, base_probs=eff_test_probs, use_evidence_fusion=True),
+        warmup_runs=2,
+        timed_runs=6,
         device=primary_device,
         num_samples_per_run=len(test_labels)
     )
@@ -274,7 +397,7 @@ def run_benchmark(
         "throughput_samples_per_sec": imo_profiling["throughput_samples_per_sec"],
         "peak_vram_mb": 0.0,
         "peak_ram_mb": imo_profiling["peak_ram_mb"],
-        "total_parameters": 0,
+        "total_parameters": sum(p.numel() for p in adapter.parameters()) if fine_tune else 0,
         "trainable_parameters": 0,
         "model_size_mb": imo_engine.vector_store.get_storage_size_mb(),
     }
@@ -286,7 +409,6 @@ def run_benchmark(
     print("\n--- Running Controlled CPU Benchmark for Hardware Profiling ---")
     for model_name, factory in model_factories.items():
         clf_cpu = factory("cpu")
-        # Reuse trained weights
         clf_cpu.model.load_state_dict(trained_models[model_name].model.state_dict())
         cpu_profiling = ResourceProfiler.benchmark_inference(
             fn=lambda: clf_cpu.predict_proba(test_loader),
@@ -295,7 +417,6 @@ def run_benchmark(
             device="cpu",
             num_samples_per_run=len(test_labels)
         )
-        # Inherit predictive accuracy (equivalent weights)
         rec_primary = next(r for r in benchmark_records_primary if r["model_name"] == model_name)
         cpu_record = dict(rec_primary)
         cpu_record["device"] = "cpu"
@@ -307,21 +428,20 @@ def run_benchmark(
         print(f"{model_name} CPU Latency: {cpu_profiling['avg_ms_per_sample']:.2f} ms/img, Throughput: {cpu_profiling['throughput_samples_per_sec']:.1f} img/s")
 
     # Add retrieval approaches to CPU records
-    rec_naive = dict(next(r for r in benchmark_records_primary if r["model_name"] == "Naive Retrieval (CLIP + ChromaDB)"))
-    rec_naive["device"] = "cpu"
-    benchmark_records_cpu.append(rec_naive)
-
-    rec_imo = dict(next(r for r in benchmark_records_primary if r["model_name"] == "Proposed Framework (CLIP + ChromaDB + IMO)"))
-    rec_imo["device"] = "cpu"
-    benchmark_records_cpu.append(rec_imo)
+    for ret_name in ["Naive Retrieval (CLIP + ChromaDB)", "Fine-Tuned Retrieval (Adapter + ChromaDB)", "Proposed Framework (CLIP + ChromaDB + IMO)"]:
+        match = [r for r in benchmark_records_primary if r["model_name"] == ret_name]
+        if match:
+            rec = dict(match[0])
+            rec["device"] = "cpu"
+            benchmark_records_cpu.append(rec)
 
     # 6. Noise Robustness Experiment (Hypothesis H1 Verification)
     print("\n--- Running Noise Robustness Benchmark (0%, 10%, 20%, 30% Label Corruption) ---")
     noise_results = run_noise_experiment(
-        train_embeddings=train_embeddings,
+        train_embeddings=train_emb_used,
         train_labels=train_labels,
         train_paths=train_paths,
-        test_embeddings=test_embeddings,
+        test_embeddings=test_emb_used,
         test_labels=test_labels,
         noise_rates=[0.0, 0.10, 0.20, 0.30],
         seed=seed,
@@ -377,13 +497,17 @@ def run_benchmark(
             "total_benchmark_time_seconds": time.time() - t_start,
             "primary_device": primary_device,
             "hardware": get_hardware_info(primary_device),
+            "fine_tuning_enabled": fine_tune,
+            "epochs_evaluated": actual_epochs,
         },
         "dataset": {
-            "total_samples": len(train_labels) + len(splits["val"][1]) + len(test_labels),
+            "dataset_directory": str(dataset_dir),
+            "total_samples": len(train_labels) + len(val_labels) + len(test_labels),
             "train_samples": len(train_labels),
-            "val_samples": len(splits["val"][1]),
+            "val_samples": len(val_labels),
             "test_samples": len(test_labels),
         },
+        "retrieval_tuning": tuning_summary,
         "primary_benchmark_table": df_primary.to_dict(orient="records"),
         "cpu_benchmark_table": df_cpu.to_dict(orient="records"),
         "noise_experiment": noise_results,
@@ -394,7 +518,7 @@ def run_benchmark(
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
-    print(f"\nBenchmark completed in {summary['metadata']['total_benchmark_time_seconds']:.2f} seconds.")
+    print(f"\nBenchmark completed successfully in {summary['metadata']['total_benchmark_time_seconds']:.2f} seconds.")
     print(f"Artifacts saved to: {artifacts_dir}")
     return summary
 
@@ -403,8 +527,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Unified Multi-Model Thesis Benchmark.")
     parser.add_argument("--seed", type=int, default=777, help="Deterministic random seed.")
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda"], help="Execution device.")
-    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs per baseline.")
+    parser.add_argument("--epochs", type=int, default=15, help="Number of training epochs per baseline.")
+    parser.add_argument("--data-dir", type=str, default=None, help="Path to image dataset directory.")
+    parser.add_argument("--no-fine-tune", action="store_true", help="Disable backbone fine-tuning.")
     parser.add_argument("--quick", action="store_true", help="Run with reduced epochs for fast validation.")
     args = parser.parse_args()
 
-    run_benchmark(seed=args.seed, device_mode=args.device, quick_mode=args.quick, epochs=args.epochs)
+    run_benchmark(
+        seed=args.seed,
+        device_mode=args.device,
+        quick_mode=args.quick,
+        epochs=args.epochs,
+        fine_tune=not args.no_fine_tune,
+        data_dir=args.data_dir
+    )

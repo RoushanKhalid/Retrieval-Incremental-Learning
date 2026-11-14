@@ -1,118 +1,139 @@
-# `tcontext` — Core Pipeline Reference
+# `tcontext` — Multi-Modal Incremental Learning Framework
 
-End-to-end deep learning and retrieval experiment for binary image classification (Cats vs Dogs).
-Uses 25% class-balanced sampling with explicit anti-overfitting controls.
+Internal architecture and module reference for the master's thesis research project:
+**"A Retrieval-Based Multi-Modal Learning Framework for Incremental Knowledge Integration Without Model Fine-Tuning"**
 
-> For running the app, see the [root README](../README.md). This document covers the internals.
-
----
-
-## File Reference
-
-| File | Purpose |
-|---|---|
-| `web_app.py` | Streamlit dashboard. Entry point for the interactive demo. |
-| `quick500_experiment.py` | Full pipeline: sampling → EDA → training → retrieval benchmark → reports. |
-| `comparative_eda.py` | Generates comparative method metrics plot and EDA markdown report. |
-| `query_demo.py` | CLI tool for querying the vector DB and adding new images to memory. |
-| `dataset_utils.py` | Dataset discovery, validation, RGB cleaning, and local cache management. |
-| `requirements.txt` | Pinned dependencies for the entire project. |
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![PyTorch 2.5.1+cu121](https://img.shields.io/badge/PyTorch-2.5.1%2Bcu121-orange.svg)](https://pytorch.org/)
+[![CUDA 12.1](https://img.shields.io/badge/CUDA-12.1-green.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![ChromaDB](https://img.shields.io/badge/VectorDB-ChromaDB-purple.svg)](https://www.trychroma.com/)
 
 ---
 
-## Path Resolution
+## 🏛️ System Architecture
 
-All scripts use `Path(__file__).resolve().parent` to locate project files. They work correctly regardless of the working directory they are called from — repo root, `tcontext/`, or any other path.
+The framework decouples visual representation learning from incremental knowledge adaptation:
+1. **Parametric Foundation Backbones:** Pre-trained and fine-tuned feature extractors (MobileNetV3-Small, EfficientNetB0, ResNet18, ViT-B/16, and CLIP ViT-B/32).
+2. **Metric Retrieval Adapter:** Learnable contrastive projection head ($\mathbb{R}^{512} \to \mathbb{R}^{512}$) optimizing semantic cluster compactness without altering visual encoder weights.
+3. **External Vector Memory:** Persistent ChromaDB instance operating in cosine similarity space via Hierarchical Navigable Small World (HNSW) graphs.
+4. **Intelligent Memory Orchestrator (IMO):** Automated continuous quality guardian enforcing:
+   - **Prototype Consistency Gating:** Ensures candidate embeddings correlate with running class centroids ($\cos(\mathbf{e}, \mathbf{p}_c) \ge \tau_c$).
+   - **Relative Margin Verification:** Verifies positive class proximity exceeds nearest negative prototype ($\cos(\mathbf{e}, \mathbf{p}_c) - \cos(\mathbf{e}, \mathbf{p}_{c'}) \ge \tau_m$).
+   - **Quarantine Buffer:** Isolates suspicious, mislabeled, or out-of-distribution instances without polluting the active index.
+   - **Dynamic Evidence Fusion:** Combines parametric base probability posteriors with non-parametric retrieval evidence via temperature-scaled Bayesian softmax weighting.
 
-`web_app.py` additionally calls `os.chdir(APP_DIR)` at import time so that subprocess calls launched from within Streamlit also resolve paths correctly.
-
----
-
-## Dataset Preparation
-
-### Source
-Microsoft Cats vs Dogs (Kaggle PetImages archive), accessed via the local TensorFlow Datasets download cache.
-
-### Pipeline (`dataset_utils.py`)
-1. Locates the most recent `cats_vs_dogs` zip in the TFDS download cache.
-2. Extracts `PetImages/Cat` and `PetImages/Dog` to `data/raw/PetImages/`.
-3. Validates each image (skips corrupted files), converts to RGB, re-saves as JPEG.
-4. Writes a clean cache to `data/clean/` with up to 2500 images per class.
-5. A `.ready_rgb_v2_2500` marker prevents redundant re-processing on subsequent runs.
-
-### Sampling (in `quick500_experiment.py`)
-- 25% stratified random sample per class → **625 cats + 625 dogs = 1250 total**
-- 80/20 train/val split → **1000 train, 250 validation**
-- Seeded with `--seed` for reproducibility
-
----
-
-## Modeling
-
-### Deep Learning Classifier
-- Backbone: `EfficientNetB0` (ImageNet pretrained, fully frozen)
-- Head: `GlobalAveragePooling2D → Dropout(0.45) → Dense(1, sigmoid, L2=1e-4)`
-- Optimizer: `Adam(lr=3e-4)` | Loss: `BinaryCrossentropy(label_smoothing=0.05)`
-- Input: `224×224`, batch size `32`
-- Augmentation (train only): random horizontal flip, rotation ±8%, zoom ±12%
-- Callbacks: `EarlyStopping(patience=3)`, `ReduceLROnPlateau(factor=0.35, patience=1)`
-
-### Retrieval System
-- Encoder: `CLIP ViT-B/32` (`openai/clip-vit-base-patch32`) — frozen, no training
-- Vector store: `ChromaDB` persistent collection, cosine similarity space
-- Inference: top-5 nearest neighbour search → majority-vote label
-
----
-
-## Intelligent Memory Orchestrator (IMO)
-
-Implemented in `web_app.py` via `_passes_memory_threshold()`. Before any image is added to the vector DB through the web UI:
-
-1. The EfficientNet classifier scores the image.
-2. If the predicted label **disagrees** with the user-supplied label → rejected (conflict detection).
-3. If confidence is **below 75%** → rejected (confidence gate).
-4. Only images passing both checks are embedded and inserted into ChromaDB.
-
-This keeps the retrieval memory clean without any manual curation.
+```
+                            +-----------------------------------+
+                            |        Input Query Image          |
+                            +-----------------+-----------------+
+                                              |
+                            +-----------------v-----------------+
+                            | Frozen Semantic Visual Backbone   |
+                            |       (CLIP ViT-B/32)             |
+                            +-----------------+-----------------+
+                                              | e ∈ R^512
+                            +-----------------v-----------------+
+                            |     Metric Retrieval Adapter      |
+                            |   (Supervised Contrastive MLP)    |
+                            +-----------------+-----------------+
+                                              | z = Normalize(e + W_a e)
+                     +------------------------+------------------------+
+                     |                                                 |
+                     v                                                 v
+    +---------------------------------+               +---------------------------------+
+    |    Parametric Base Classifier   |               |     Non-Parametric Memory       |
+    |        (e.g., EfficientNetB0)   |               |     (ChromaDB HNSW Graph)       |
+    +----------------+----------------+               +----------------+----------------+
+                     | P_clf(y|x)                                      | Top-k Neighbors
+                     |                                                 v
+                     |                                +---------------------------------+
+                     |                                | Intelligent Memory Orchestrator |
+                     |                                | (Prototype & Margin Gating)     |
+                     |                                +----------------+----------------+
+                     |                                                 | P_ret(y|x)
+                     +------------------------+------------------------+
+                                              |
+                                              v
+                            +-----------------------------------+
+                            |      Dynamic Evidence Fusion      |
+                            |  P(y|x) = α P_clf + (1-α) P_ret   |
+                            +-----------------------------------+
+```
 
 ---
 
-## Key Output Files
+## 📁 Directory Structure & Module Reference
 
-| Path | Content |
-|---|---|
-| `artifacts/sampled25_summary.json` | Full metrics, timing, compute profile — consumed by the dashboard |
-| `artifacts/sampled25_comparison_metrics.csv` | Side-by-side classifier vs retrieval metric table |
-| `artifacts/sampled25_training_history.csv` | Per-epoch loss/accuracy/AUC values |
-| `artifacts/training_curves.png` | Loss, accuracy, AUC curves across epochs |
-| `artifacts/classifier_roc_curve.png` | ROC curve with AUC annotation |
-| `artifacts/comparison_confusion_matrices.png` | Classifier and retrieval confusion matrices |
-| `artifacts/comparative_method_metrics.png` | Bar chart comparing accuracy/precision/recall/F1 |
-| `artifacts/comparative_learning_curve.png` | Train vs val accuracy convergence plot |
-| `model/cats_vs_dogs_model_quick500.keras` | Saved Keras model |
-| `reports/sampled25_report.md` | Full experiment report (auto-generated) |
-| `reports/comparative_eda_report.md` | Comparative EDA narrative (auto-generated) |
-| `vector_db/` | Persistent ChromaDB collections |
+```
+tcontext/
+├── artifacts/                  # Generated benchmark CSVs, JSON summaries, and plots
+│   ├── benchmark_results_cpu.csv
+│   ├── benchmark_results_cuda_0.csv
+│   ├── benchmark_summary.json
+│   ├── metric_retrieval_adapter.pt
+│   ├── noise_experiment_results.json
+│   └── *.png
+├── data/                       # Data ingestion and leak-free partitioning
+│   ├── dataset_loader.py       # Deterministic 3-way stratified partitioner (70/15/15)
+│   ├── full_dataset/           # 2,500 validated images (1,250 cats, 1,250 dogs)
+│   └── hf_parquet/             # HuggingFace parquet mirror archives
+├── evaluation/                 # Metrics, noise testing, and hardware profilers
+│   ├── metrics.py              # Classification metrics (Acc, Precision, Recall, F1, ROC-AUC)
+│   ├── noise_benchmarks.py     # Synthetic label corruption stress testing (0% to 30%)
+│   └── resource_tracker.py     # Hardware metrics (RAM, VRAM, latency, throughput)
+├── experiments/                # Unified experimental runners
+│   └── run_benchmark.py        # Master multi-model benchmark script
+├── models/                     # Deep learning classifier suite
+│   ├── base_model.py           # Abstract BaseClassifier with 2-stage fine-tuning
+│   ├── cnn_models.py           # MobileNetV3-Small, EfficientNetB0, ResNet18
+│   ├── clip_model.py           # CLIP ViT-B/32 vision encoder & linear probe
+│   └── vit_model.py            # Vision Transformer ViT-B/16
+├── reports/                    # Formal thesis reports and audit logs
+│   ├── END_TO_END_AUDIT.md     # Comprehensive repository audit
+│   ├── EXPERIMENTAL_METHODOLOGY.md # Formal scientific protocol & equations
+│   ├── HARDWARE_BENCHMARK.md   # CPU vs. GPU profiling report
+│   ├── IMPLEMENTATION_CHANGELOG.md # Engineering changelog
+│   └── MODEL_COMPARISON.md     # Multi-model evaluation analysis
+├── retrieval/                  # External memory & orchestration
+│   ├── imo.py                  # Intelligent Memory Orchestrator
+│   ├── retrieval_engine.py     # RetrievalFramework & MetricRetrievalAdapter
+│   └── vector_store.py         # ChromaVectorStore wrapper
+├── vector_db/                  # Local persistent ChromaDB directories
+├── visualization/              # Publication graphics generator
+│   └── plot_results.py         # Matplotlib / Seaborn visualization routines
+└── web_app.py                  # Interactive 6-module Streamlit research dashboard
+```
 
 ---
 
-## Latest Experiment Snapshot (Seed 777)
+## 🧪 Experimental Protocol
 
-| Metric | Classifier (EfficientNetB0) | Retrieval (CLIP + ChromaDB) |
-|---|---|---|
-| Accuracy | 0.9800 | 0.9880 |
-| Precision | 1.0000 | 1.0000 |
-| Recall | 0.9600 | 0.9760 |
-| F1 | 0.9796 | 0.9879 |
+### 1. Leak-Free 3-Way Stratified Partitioning
+Data is partitioned deterministically using seed `777`:
+- **Train Split (70%, 1,752 samples):** Used exclusively for linear probing, backbone fine-tuning, and vector memory index construction.
+- **Validation Split (15%, 374 samples):** Used for learning rate scheduling, early stopping checkpoint selection, and retrieval hyperparameter calibration ($k^*, \alpha^*$).
+- **Test Split (15%, 374 samples):** Completely held out. Evaluated identically across all 8 architectural paradigms under equivalent conditions.
 
-- Epochs completed: 12 | Best epoch (val_loss): 12
-- No overfitting gap > 0.08 detected across any epoch
+### 2. Two-Stage Fine-Tuning
+Parametric models follow a disciplined two-stage training curriculum:
+- **Phase 1 (Linear Probe Warmup):** The backbone remains frozen while the classification head is trained with learning rate $\eta_{\text{head}} = 3 \times 10^{-4}$ for 4-5 epochs.
+- **Phase 2 (End-to-End Fine-Tuning):** The backbone is unfrozen and trained with discriminative learning rate $\eta_{\text{backbone}} = 1 \times 10^{-5}$ and Cosine Annealing schedule with early stopping.
+
+### 3. Metric Retrieval Adaptation
+To tailor general-purpose CLIP embeddings to the target visual domain without altering backbone weights:
+- A learnable residual projection head $\mathbf{z} = \text{Normalize}(\mathbf{e} + \alpha \cdot \text{MLP}(\mathbf{e}))$ is optimized using Supervised Contrastive loss on $\mathcal{D}_{\text{train}}$.
+- Hyperparameters ($k^* \in \{1, 3, 5, 7, 9\}$ and fusion weight $\alpha^* \in [0.0, 1.0]$) are calibrated strictly on $\mathcal{D}_{\text{val}}$.
 
 ---
 
-## Reproducibility Notes
+## 🚀 Execution Commands
 
-- `--seed` controls both the random subset sampling and the train/val split shuffle.
-- The clean cache (`data/clean/`) persists across runs. Delete it to force a full re-clean.
-- Each experiment run creates a new seed-stamped vector DB (`vector_db/clip_chroma_db_seed_<N>/`). The app always picks the most recently modified one.
-- TFDS zip must be present locally before the first run. Download once with: `import tensorflow_datasets as tfds; tfds.load("cats_vs_dogs")`.
+Run full multi-model benchmark with fine-tuning on GPU:
+```powershell
+python tcontext\experiments\run_benchmark.py --epochs 15 --seed 777
+```
+
+Launch the interactive Streamlit dashboard:
+```powershell
+streamlit run tcontext\web_app.py --server.port 8501
+```

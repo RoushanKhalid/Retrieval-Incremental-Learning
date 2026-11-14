@@ -59,10 +59,13 @@ def run_noise_experiment(
         noisy_train_labels = inject_label_noise(train_labels, noise_rate=rate, seed=seed)
 
         # 1. Benchmark Naive Retrieval
-        naive_db_path = temp_path / f"naive_noise_{int(rate*100)}"
+        naive_db_path = temp_path / f"naive_noise_{int(rate*100)}_{seed}"
         if naive_db_path.exists():
             import shutil
-            shutil.rmtree(naive_db_path)
+            try:
+                shutil.rmtree(naive_db_path)
+            except Exception:
+                naive_db_path = temp_path / f"naive_noise_{int(rate*100)}_{seed}_{random.randint(1000,9999)}"
         naive_store = ChromaVectorStore(naive_db_path, collection_name="naive_noise")
         naive_ids = [f"naive_{i}" for i in range(len(noisy_train_labels))]
         naive_metas = [{"label": int(l)} for l in noisy_train_labels]
@@ -79,10 +82,13 @@ def run_noise_experiment(
         results["naive_f1"].append(naive_metrics["f1"])
 
         # 2. Benchmark IMO-Enhanced Retrieval
-        imo_db_path = temp_path / f"imo_noise_{int(rate*100)}"
+        imo_db_path = temp_path / f"imo_noise_{int(rate*100)}_{seed}"
         if imo_db_path.exists():
             import shutil
-            shutil.rmtree(imo_db_path)
+            try:
+                shutil.rmtree(imo_db_path)
+            except Exception:
+                imo_db_path = temp_path / f"imo_noise_{int(rate*100)}_{seed}_{random.randint(1000,9999)}"
         imo_store = ChromaVectorStore(imo_db_path, collection_name="imo_noise")
         imo = IntelligentMemoryOrchestrator(
             prototype_consistency_threshold=0.65,

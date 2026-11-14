@@ -46,14 +46,25 @@ os.chdir(str(PROJECT_DIR))
 
 ARTIFACTS_DIR = PROJECT_DIR / "artifacts"
 REPORTS_DIR = PROJECT_DIR / "reports"
-DATA_DIR = PROJECT_DIR / "data" / "sampled_25_percent_seed_777"
+
+if (PROJECT_DIR / "data" / "full_dataset").exists():
+    DATA_DIR = PROJECT_DIR / "data" / "full_dataset"
+elif (PROJECT_DIR / "data" / "sampled_25_percent_seed_777").exists():
+    DATA_DIR = PROJECT_DIR / "data" / "sampled_25_percent_seed_777"
+else:
+    DATA_DIR = PROJECT_DIR / "data" / "sampled_10_percent"
+
 VECTOR_DB_DIR = PROJECT_DIR / "vector_db"
 
 SUMMARY_PATH = ARTIFACTS_DIR / "benchmark_summary.json"
 CUDA_CSV_PATH = ARTIFACTS_DIR / "benchmark_results_cuda_0.csv"
 CPU_CSV_PATH = ARTIFACTS_DIR / "benchmark_results_cpu.csv"
 NOISE_JSON_PATH = ARTIFACTS_DIR / "noise_experiment_results.json"
-SPLIT_PATH = ARTIFACTS_DIR / "stratified_split_seed_777.json"
+
+if (ARTIFACTS_DIR / f"stratified_split_{DATA_DIR.name}_seed_777.json").exists():
+    SPLIT_PATH = ARTIFACTS_DIR / f"stratified_split_{DATA_DIR.name}_seed_777.json"
+else:
+    SPLIT_PATH = ARTIFACTS_DIR / "stratified_split_seed_777.json"
 
 CLASS_NAMES = ["cats", "dogs"]
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"

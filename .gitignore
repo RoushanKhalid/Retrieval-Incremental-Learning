@@ -9,18 +9,17 @@ __pycache__/
 venv/
 env/
 
-# Local experiment cache and heavy outputs
+# Local experiment cache, raw download archives and heavy outputs
 tcontext/data/raw/
 tcontext/data/clean/
 tcontext/data/sampled_25_percent/
+tcontext/data/hf_parquet/
 tcontext/model/
 tcontext/vector_db/
 
-# Generated plots and CSV/JSON artifacts
-tcontext/artifacts/
-
 # Local run logs
 logs/
+*.log
 
 # OS files
 .DS_Store

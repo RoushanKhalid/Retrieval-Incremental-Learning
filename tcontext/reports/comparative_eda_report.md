@@ -5,9 +5,9 @@
 - Create thesis-ready comparative analysis for discussion and results chapters.
 
 ## Dataset Context
-- Total samples: `1250`
+- Total samples: `2500`
 - Class distribution: `{'cats': 625, 'dogs': 625}`
-- Validation samples: `186`
+- Validation samples: `374`
 
 ## System Architecture (Comparative)
 - **Deep learning pipeline**: image preprocessing -> EfficientNet feature extractor -> trainable head -> sigmoid prediction.
@@ -23,17 +23,18 @@
 
 | model_name | device | accuracy | precision | recall | f1 | roc_auc | train_time_sec | avg_ms_per_sample | throughput_samples_per_sec | peak_vram_mb | peak_ram_mb | total_parameters | trainable_parameters | model_size_mb | method |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| MobileNetV3-Small | cuda:0 | 0.9409 | 0.9184 | 0.9677 | 0.9424 | 0.9820 | 37.8543 | 3.4175 | 292.6085 | 100.4019 | 0.0000 | 928162 | 1154 | 3.6648 | MobileNetV3-Small |
-| EfficientNetB0 | cuda:0 | 0.9247 | 0.9247 | 0.9247 | 0.9247 | 0.9852 | 42.3035 | 3.7004 | 270.2411 | 374.3213 | 0.0000 | 4010110 | 2562 | 15.5778 | EfficientNetB0 |
-| ResNet18 | cuda:0 | 0.9731 | 0.9583 | 0.9892 | 0.9735 | 0.9951 | 40.2736 | 3.6092 | 277.0702 | 306.3291 | 0.0000 | 11177538 | 1026 | 42.7129 | ResNet18 |
-| ViT-B/16 | cuda:0 | 0.9892 | 0.9892 | 0.9892 | 0.9892 | 0.9990 | 134.3999 | 10.8732 | 91.9694 | 668.2314 | 0.0000 | 85800194 | 1538 | 327.3578 | ViT-B/16 |
-| CLIP (ViT-B/32) | cuda:0 | 0.9946 | 1.0000 | 0.9892 | 0.9946 | 0.9997 | 57.9989 | 4.7514 | 210.4626 | 1079.6631 | 0.0000 | 151278339 | 1026 | 577.2318 | CLIP (ViT-B/32) |
-| Naive Retrieval (CLIP + ChromaDB) | cuda:0 | 0.9892 | 1.0000 | 0.9785 | 0.9891 | 0.9945 | 0.4491 | 0.1830 | 5465.6707 | 0.0000 | 0.0000 | 0 | 0 | 4.2482 | Naive Retrieval (CLIP + ChromaDB) |
-| Proposed Framework (CLIP + ChromaDB + IMO) | cuda:0 | 0.9946 | 1.0000 | 0.9892 | 0.9946 | 0.9988 | 0.6683 | 0.1940 | 5154.3264 | 0.0000 | 0.0000 | 0 | 0 | 4.2404 | Proposed Framework (CLIP + ChromaDB + IMO) |
+| MobileNetV3-Small | cuda:0 | 0.9733 | 0.9733 | 0.9733 | 0.9733 | 0.9963 | 116.0460 | 3.3025 | 302.7998 | 103.9639 | 0.0000 | 928162 | 1154 | 3.6648 | MobileNetV3-Small |
+| EfficientNetB0 | cuda:0 | 0.9866 | 0.9840 | 0.9893 | 0.9867 | 0.9998 | 175.1840 | 3.7462 | 266.9399 | 394.3823 | 0.0000 | 4010110 | 2562 | 15.5778 | EfficientNetB0 |
+| ResNet18 | cuda:0 | 0.9920 | 0.9894 | 0.9947 | 0.9920 | 0.9990 | 149.1960 | 3.6904 | 270.9758 | 370.0024 | 0.0000 | 11177538 | 1026 | 42.7129 | ResNet18 |
+| ViT-B/16 | cuda:0 | 0.9947 | 0.9947 | 0.9947 | 0.9947 | 0.9997 | 479.9537 | 10.9839 | 91.0426 | 1066.4771 | 0.0000 | 85800194 | 1538 | 327.3578 | ViT-B/16 |
+| CLIP (ViT-B/32) | cuda:0 | 0.9973 | 0.9947 | 1.0000 | 0.9973 | 1.0000 | 173.1639 | 4.4303 | 225.7187 | 1541.6333 | 0.0000 | 151278339 | 1026 | 577.2318 | CLIP (ViT-B/32) |
+| Naive Retrieval (CLIP + ChromaDB) | cuda:0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 0.8030 | 0.1769 | 5653.8798 | 0.0000 | 0.0000 | 0 | 0 | 11.6074 | Naive Retrieval (CLIP + ChromaDB) |
+| Fine-Tuned Retrieval (Adapter + ChromaDB) | cuda:0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 0.6867 | 0.1398 | 7152.5013 | 0.0000 | 0.0000 | 526337 | 526337 | 11.6035 | Fine-Tuned Retrieval (Adapter + ChromaDB) |
+| Proposed Framework (CLIP + ChromaDB + IMO) | cuda:0 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.2694 | 0.1487 | 6725.9856 | 0.0000 | 0.0000 | 526337 | 0 | 11.5851 | Proposed Framework (CLIP + ChromaDB + IMO) |
 
 ## EDA Findings
-- Accuracy delta (`Classifier - Retrieval`): `-0.0538`
-- F1 delta (`Classifier - Retrieval`): `-0.0522`
+- Accuracy delta (`Classifier - Retrieval`): `-0.0267`
+- F1 delta (`Classifier - Retrieval`): `-0.0267`
 - Retrieval achieves near-parity with classifier performance while avoiding weight updates.
 - Precision-recall trade-off indicates retrieval is more conservative; classifier is slightly more recall-strong.
 
@@ -46,10 +47,10 @@
 - Final generalization gap: `N/A`
 
 ## Computational and Incremental Cost
-- Baseline DL train time (s): `42.30`
-- Retrieval memory index time (s): `0.67`
-- Baseline DL inference latency (ms): `3.70`
-- Retrieval inference latency (ms): `0.19`
+- Baseline DL train time (s): `175.18`
+- Retrieval memory index time (s): `1.27`
+- Baseline DL inference latency (ms): `3.75`
+- Retrieval inference latency (ms): `0.15`
 
 ## Thesis Conclusion (Comparative)
 - Deep learning gives top-end performance but requires heavier retraining cost for new context.

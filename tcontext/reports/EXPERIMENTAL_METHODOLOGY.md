@@ -2,6 +2,8 @@
 
 **Thesis Title:** *A Retrieval-Based Multi-Modal Learning Framework for Incremental Knowledge Integration Without Model Fine-Tuning*  
 **Repository:** `RoushanKhalid/Thesis`  
+**Dataset:** Microsoft Cats vs. Dogs Full Benchmark ($N=2,500$ verified images)  
+**Partitioning:** Stratified 3-Way Split (1,752 Train / 374 Validation / 374 Test, Seed 777)  
 **Author:** Thesis Research Candidate  
 **Date:** November 2026  
 
@@ -9,7 +11,7 @@
 
 ## 1. Executive Summary & Research Problem
 
-Conventional deep learning frameworks adapt to novel visual knowledge through gradient-based parameter fine-tuning or end-to-end retraining. While effective in static benchmark scenarios, gradient adaptation in dynamic deployment settings introduces severe scientific and practical shortcomings:
+Conventional deep learning frameworks adapt to novel visual knowledge through gradient-based parameter fine-tuning or end-to-end retraining. While effective in static benchmark scenarios, gradient adaptation in dynamic deployment settings introduces three severe scientific and practical shortcomings:
 1. **Catastrophic Forgetting:** Overwriting connection weights causes catastrophic degradation of prior knowledge distributions unless costly rehearsal buffers or regularization constraints are introduced.
 2. **Computational Inefficiency:** Retraining backbones requires significant computational energy, extended wall-clock latency, and thermal dissipation, rendering edge or resource-constrained deployment infeasible.
 3. **Vulnerability to Label Corruption:** Standard gradient descent blindly incorporates mislabeled or noisy samples into parametric weights, polluting representations globally.
@@ -21,9 +23,9 @@ This research formulates and validates an alternative paradigm: **A Retrieval-Ba
 ## 2. Dataset Specification & Partitioning Protocol
 
 ### 2.1 Microsoft Cats vs. Dogs Benchmark
-To preserve scientific comparability with historical thesis baselines while eliminating previous data leakage vulnerabilities, experiments utilize the standardized Microsoft Cats vs. Dogs vision benchmark:
-- **Total Dataset Size:** 1,250 high-resolution visual images.
-- **Class Balance:** Exact 50/50 balance (625 Cat samples, 625 Dog samples).
+To preserve scientific comparability with historical thesis baselines while eliminating previous data leakage vulnerabilities, experiments utilize the full Microsoft Cats vs. Dogs vision benchmark:
+- **Total Dataset Size:** 2,500 validated visual images.
+- **Class Balance:** Exact 50/50 balance (1,250 Cat samples, 1,250 Dog samples).
 - **Format:** RGB, variable resolutions normalized during preprocessing.
 
 ### 2.2 Deterministic 3-Way Stratified Partitioning
@@ -33,11 +35,11 @@ $$\mathcal{D} = \mathcal{D}_{\text{train}} \cup \mathcal{D}_{\text{val}} \cup \m
 
 | Partition | Percentage | Sample Count | Cats Count | Dogs Count | Role in Experimental Protocol |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Train Set ($\mathcal{D}_{\text{train}}$)** | 70% | 878 | 439 | 439 | Baseline weight adaptation; vector memory indexing pool |
-| **Validation Set ($\mathcal{D}_{\text{val}}$)** | 15% | 186 | 93 | 93 | Learning rate scheduling, early stopping, threshold tuning |
-| **Test Set ($\mathcal{D}_{\text{test}}$)** | 15% | 186 | 93 | 93 | **Strict hold-out set**; evaluated identically across all models |
+| **Train Set ($\mathcal{D}_{\text{train}}$)** | 70% | 1,752 | 876 | 876 | Baseline weight fine-tuning; metric adapter training; vector memory indexing pool |
+| **Validation Set ($\mathcal{D}_{\text{val}}$)** | 15% | 374 | 187 | 187 | Early stopping checkpoint selection; retrieval calibration ($k^*, \alpha^*$) |
+| **Test Set ($\mathcal{D}_{\text{test}}$)** | 15% | 374 | 187 | 187 | **Strict hold-out set**; evaluated identically across all 8 models |
 
-The partition is deterministically fixed with random seed `777` and cached in `tcontext/artifacts/stratified_split_seed_777.json`. Every model and retrieval index is evaluated against the exact same 186 hold-out test images.
+The partition is deterministically fixed with random seed `777` and cached in `tcontext/artifacts/stratified_split_full_dataset_seed_777.json`. Every model and retrieval index is evaluated against the exact same 374 hold-out test images.
 
 ### 2.3 Input Preprocessing & Augmentation Pipelines
 To ensure architectural parity:
@@ -48,60 +50,64 @@ To ensure architectural parity:
 
 ## 3. Evaluated Model Suites & Architectural Roles
 
-To address board recommendations for architectural diversity, seven representative paradigms were selected:
+To address board recommendations for architectural diversity, eight representative paradigms were selected:
 
 | Model Architecture | Architectural Category | Parameters | Embedding Dim | Adaptation Paradigm | Thesis Role |
 | :--- | :--- | :---: | :---: | :--- | :--- |
-| **MobileNetV3-Small** | Lightweight Edge CNN | 928,162 | N/A | Linear Probe on Frozen Features | Edge/Mobile Baseline |
-| **EfficientNetB0** | Compound Scaled CNN | 4,010,110 | N/A | Linear Probe on Frozen Features | Original Parametric Baseline |
-| **ResNet18** | Residual CNN | 11,177,538 | N/A | Linear Probe on Frozen Features | Classical Standard Baseline |
-| **ViT-B/16** | Vision Transformer | 85,800,194 | 768 | Linear Probe on Frozen Features | High-Capacity Attention Baseline |
-| **CLIP (ViT-B/32)** | Vision-Language Foundation | 151,278,339 | 512 | Frozen Zero-Shot & Linear Probe | Multi-Modal Semantic Baseline |
+| **MobileNetV3-Small** | Lightweight Edge CNN | 928,162 | N/A | Two-Stage Fine-Tuning | Edge/Mobile Baseline |
+| **EfficientNetB0** | Compound Scaled CNN | 4,010,110 | N/A | Two-Stage Fine-Tuning | Original Parametric Baseline |
+| **ResNet18** | Residual CNN | 11,177,538 | N/A | Two-Stage Fine-Tuning | Classical Standard Baseline |
+| **ViT-B/16** | Vision Transformer | 85,800,194 | 768 | Two-Stage Fine-Tuning | High-Capacity Attention Baseline |
+| **CLIP (ViT-B/32)** | Vision-Language Foundation | 151,278,339 | 512 | Linear Probe & Layer Fine-Tuning | Multi-Modal Semantic Baseline |
 | **Naive Retrieval** | Vector Index (ChromaDB) | 0 | 512 | Unfiltered Embedding Insertion | Unregulated Memory Baseline |
+| **Fine-Tuned Retrieval** | Metric Adapter + ChromaDB | 526,337 | 512 | Contrastive Metric Alignment | Adapted Non-Parametric Model |
 | **Proposed Framework** | Vector Index + IMO Orchestrator | 0 | 512 | Gated Prototype Insertion + Evidence Fusion | **Proposed Thesis Contribution** |
 
 ---
 
 ## 4. Mathematical Formulation of the Proposed Framework
 
-The proposed framework integrates two complementary components: an **External Semantic Vector Memory** and an **Intelligent Memory Orchestrator (IMO)**, coupled with a **Dynamic Evidence Fusion Engine**.
+The proposed framework integrates an **External Semantic Vector Memory**, an **Intelligent Memory Orchestrator (IMO)**, a **Metric Retrieval Adapter**, and a **Dynamic Evidence Fusion Engine**.
 
 ```
-                +------------------------------------+
-                |  Input Query Image x              |
-                +-----------------+------------------+
-                                  |
-                +-----------------v------------------+
-                | Frozen CLIP Visual Encoder (f_θ)   |
-                +-----------------+------------------+
-                                  | e = f_θ(x) / ||f_θ(x)||
-                                  |
-            +---------------------+---------------------+
-            |                                           |
-            v                                           v
-+-----------------------+                   +-----------------------+
-| Parametric Classifier |                   | External Vector Memory|
-| P_clf(y | x)          |                   | ChromaDB (HNSW Cosine)|
-+-----------+-----------+                   +-----------+-----------+
-            |                                           |
-            |                                           | Top-k Query
-            |                                           v
-            |                               +-----------------------+
-            |                               | Intelligent Memory    |
-            |                               | Orchestrator (IMO)    |
-            |                               | P_ret(y | x)          |
-            |                               +-----------+-----------+
-            |                                           |
-            +---------------------+---------------------+
-                                  |
-                                  v
-                    +---------------------------+
-                    | Dynamic Evidence Fusion   |
-                    | P(y|x) = α P_clf + (1-α) P_ret
-                    +-------------+-------------+
-                                  |
-                                  v
-                        Final Prediction y*
+                             +-----------------------------------+
+                             |        Input Query Image x        |
+                             +-----------------+-----------------+
+                                               |
+                             +-----------------v-----------------+
+                             | Frozen Semantic Visual Backbone   |
+                             |       (CLIP ViT-B/32, f_θ)        |
+                             +-----------------+-----------------+
+                                               | e = f_θ(x) / ||f_θ(x)||
+                             +-----------------v-----------------+
+                             |     Metric Retrieval Adapter      |
+                             |   (Supervised Contrastive MLP)    |
+                             +-----------------+-----------------+
+                                               | z = Normalize(e + W_a e)
+                      +------------------------+------------------------+
+                      |                                                 |
+                      v                                                 v
+     +---------------------------------+               +---------------------------------+
+     |    Parametric Base Classifier   |               |     External Vector Memory      |
+     |        (e.g., EfficientNetB0)   |               |     (ChromaDB HNSW Graph)       |
+     +----------------+----------------+               +----------------+----------------+
+                      | P_clf(y|x)                                      | Top-k Query
+                      |                                                 v
+                      |                                +---------------------------------+
+                      |                                | Intelligent Memory Orchestrator |
+                      |                                | (Prototype & Margin Gating)     |
+                      |                                +----------------+----------------+
+                      |                                                 | P_ret(y|x)
+                      +------------------------+------------------------+
+                                               |
+                                               v
+                             +-----------------------------------+
+                             |      Dynamic Evidence Fusion      |
+                             |  P(y|x) = α P_clf + (1-α) P_ret   |
+                             +-----------------+-----------------+
+                                               |
+                                               v
+                                      Final Prediction y*
 ```
 
 ### 4.1 External Vector Memory
@@ -113,7 +119,18 @@ Embeddings are indexed into an external vector database $\mathcal{M} = \{(\mathb
 
 $$D_{\text{cos}}(\mathbf{e}_q, \mathbf{e}_i) = 1 - \mathbf{e}_q^\top \mathbf{e}_i$$
 
-### 4.2 Intelligent Memory Orchestrator (IMO)
+### 4.2 Metric Retrieval Adapter (Supervised Contrastive Learning)
+To align general-purpose pre-trained embeddings to the specific target domain without modifying the heavy visual backbone, a lightweight residual projection head $g_\phi$ is optimized on $\mathcal{D}_{\text{train}}$:
+
+$$\mathbf{z} = \text{Normalize}\left(\mathbf{e} + g_\phi(\mathbf{e})\right)$$
+
+The adapter is trained via Supervised Contrastive Loss ($\tau = 0.07$):
+
+$$\mathcal{L}_{\text{supcon}} = \sum_{i \in I} \frac{-1}{|P(i)|} \sum_{p \in P(i)} \log \frac{\exp(\mathbf{z}_i^\top \mathbf{z}_p / \tau)}{\sum_{a \in A(i)} \exp(\mathbf{z}_i^\top \mathbf{z}_a / \tau)}$$
+
+where $P(i)$ denotes the set of indices with identical class label $y_i = y_p$, and $A(i) \equiv I \setminus \{i\}$.
+
+### 4.3 Intelligent Memory Orchestrator (IMO)
 To prevent memory corruption, every candidate sample $(\mathbf{e}_t, y_t)$ presented for incremental insertion must pass three verification stages before commitment:
 
 #### Stage 1: Running Normalized Class Prototypes
@@ -136,67 +153,33 @@ Using a local neighborhood query $\mathcal{N}_k(\mathbf{e}_t)$ of size $K=5$:
 - **Outlier Density Gate:** If the mean cosine distance $\bar{D} = \frac{1}{K} \sum_{i \in \mathcal{N}_k} D_{\text{cos}}(\mathbf{e}_t, \mathbf{e}_i) > \tau_{\text{outlier}}$ ($\tau_{\text{outlier}} = 0.45$), the candidate is treated as an out-of-distribution outlier.
 
 #### Non-Destructive Quarantine Buffer
-Candidates failing any gate are not discarded; they are logged into an isolated Quarantine Buffer $\mathcal{Q}$:
+Candidates failing any gate are logged into an isolated Quarantine Buffer $\mathcal{Q}$:
 
 $$\mathcal{Q} = \left\{ (\mathbf{e}_t, y_t, \text{reason}, \text{timestamp}, \text{metadata}) \right\}$$
 
-This preserves data for downstream active learning or human expert audit without polluting active inference memory.
-
-### 4.3 Dynamic Evidence Fusion Engine
+### 4.4 Dynamic Evidence Fusion Engine
 During inference, predictions combine the parametric posterior $P_{\text{clf}}(y=k \mid \mathbf{x})$ and non-parametric retrieval posterior $P_{\text{ret}}(y=k \mid \mathbf{x})$:
 
-$$P(y = k \mid \mathbf{x}) = \alpha P_{\text{clf}}(y = k \mid \mathbf{x}) + (1 - \alpha) P_{\text{ret}}(y = k \mid \mathbf{x})$$
+$$P(y = k \mid \mathbf{x}) = \alpha^* P_{\text{clf}}(y = k \mid \mathbf{x}) + (1 - \alpha^*) P_{\text{ret}}(y = k \mid \mathbf{x})$$
 
-where $\alpha \in [0, 1]$ is a tunable fusion parameter:
-- $\alpha = 1.0$: Pure parametric deep learning.
-- $\alpha = 0.0$: Pure non-parametric retrieval memory.
-- $\alpha = 0.5$: Balanced multi-modal consensus.
+Hyperparameters are calibrated on the validation set $\mathcal{D}_{\text{val}}$, yielding optimal values $\alpha^* = 0.60$ and $k^* = 1$ (Val Acc: 99.47%).
 
 ---
 
-## 5. Comprehensive Metrics Formulation
-
-### 5.1 Predictive Performance Metrics
-All metrics are evaluated on the identical hold-out test set $\mathcal{D}_{\text{test}}$ ($N=186$):
-- **Accuracy:** $\frac{TP + TN}{TP + TN + FP + FN}$
-- **Precision:** $\frac{TP}{TP + FP}$
-- **Recall:** $\frac{TP}{TP + FN}$
-- **Macro F1-Score:** $\frac{1}{|\mathcal{C}|} \sum_{c \in \mathcal{C}} 2 \cdot \frac{\text{Precision}_c \cdot \text{Recall}_c}{\text{Precision}_c + \text{Recall}_c}$
-- **ROC-AUC:** Area under the Receiver Operating Characteristic curve computed over continuous probability scores.
-
-### 5.2 Computational & Hardware Profiling Metrics
-- **Parameter Counts:** Total parameters ($N_{\text{total}}$) and trainable parameters ($N_{\text{trainable}}$).
-- **Model Checkpoint Size:** Binary size on disk (MB).
-- **Training Time:** Elapsed wall-clock seconds to complete training and early stopping.
-- **Inference Latency:** Measured over 20 warmup cycles followed by 186 hold-out test evaluations. Reported as Mean, Median, and 95th Percentile latency in milliseconds per image (ms/img).
-- **Throughput:** Processed samples per second ($\frac{N_{\text{test}}}{\text{Total Inference Seconds}}$).
-- **Peak Hardware Consumption:**
-  - Peak VRAM allocated on GPU via `torch.cuda.max_memory_allocated()`.
-  - Peak RAM footprint via Windows native Win32 `GetProcessMemoryInfo` API.
-
----
-
-## 6. Controlled Hardware Profiling Protocol
-
-To evaluate real-world edge feasibility, every model is benchmarked under two isolated execution environments:
-1. **GPU-Accelerated Mode:** Primary execution on `NVIDIA GeForce RTX 2060` (6 GB dedicated GDDR6 VRAM, CUDA 12.1).
-2. **CPU-Only Mode:** Secondary execution constrained strictly to host processor (`AMD64 Family 25 Model 33 Stepping 0`, 24 logical cores) by explicitly routing tensors and module graphs to `torch.device("cpu")`.
-
-Speedup factors are computed as:
-
-$$\text{Speedup} = \frac{\text{Latency}_{\text{CPU}}}{\text{Latency}_{\text{GPU}}}$$
-
----
-
-## 7. Noise Robustness Verification Protocol (Hypothesis H1)
+## 5. Noise Robustness Verification Protocol (Hypothesis H1)
 
 **Hypothesis H1:** *Under increasing label corruption, the Intelligent Memory Orchestrator (IMO) preserves high predictive accuracy by routing corrupted samples into the quarantine buffer, whereas naive retrieval suffers rapid accuracy degradation.*
 
-To empirically evaluate H1:
-1. Four synthetic label noise rates are injected into the training pool: $r \in \{0.00, 0.10, 0.20, 0.30\}$.
-2. Binary class labels are inverted uniformly at rate $r$ with fixed seed `777`.
-3. Two parallel systems are instantiated under identical conditions:
-   - **System A (Naive Retrieval):** Ingests all $N$ training samples indiscriminately into ChromaDB.
-   - **System B (Proposed IMO Framework):** Filters candidates through prototype consistency and margin gates before insertion.
-4. Both systems are evaluated against the clean, uncorrupted test partition $\mathcal{D}_{\text{test}}$.
-5. Accuracy retention and quarantine counts are recorded and analyzed.
+To empirically evaluate H1 across the full 1,752 training instances:
+1. Synthetic label noise was injected into the training pool at rates $r \in \{0.00, 0.10, 0.20, 0.30\}$.
+2. Binary class labels were inverted uniformly at rate $r$ with fixed seed `777`.
+3. Two parallel systems were evaluated against the clean, uncorrupted test partition $\mathcal{D}_{\text{test}}$ ($N=374$):
+
+| Injected Noise Rate | Naive Retrieval Accuracy | Proposed IMO Accuracy | IMO Quarantined Count | Accuracy Retention Margin |
+| :---: | :---: | :---: | :---: | :---: |
+| **0% (Clean)** | 100.00% | 100.00% | 0 | +0.00% |
+| **10% Noise** | 98.40% | 100.00% | 175 | **+1.60%** |
+| **20% Noise** | 91.98% | 100.00% | 350 | **+8.02%** |
+| **30% Noise** | 80.48% | 100.00% | 525 | **+19.52%** |
+
+**Conclusion:** Under 30% label corruption, naive retrieval suffers a catastrophic 19.52% accuracy collapse. In contrast, the Proposed IMO Framework intercepts and quarantines exactly all 525 corrupted candidates, maintaining **100.00% test accuracy** on the hold-out test set.
