@@ -29,7 +29,7 @@
 
 \affil*[1]{\orgdiv{Department of Software Engineering}, \orgname{Daffodil International University}, \orgaddress{\street{Daffodil Smart City}, \city{Dhaka}, \postcode{1216}, \country{Bangladesh}}}
 
-\abstract{Adapting deep visual classifiers to continuous streams of incoming knowledge remains a foundational challenge in intelligent information systems. Conventional approaches rely on gradient backpropagation and parameter fine-tuning, which inevitably incur catastrophic forgetting, substantial energy and computational latency, and severe vulnerability to label corruption. In this paper, we propose a novel non-parametric Retrieval-Based Multi-Modal Learning Framework that decouples visual representation learning from incremental knowledge adaptation. The framework freezes a high-capacity semantic visual encoder (OpenAI CLIP ViT-B/32) and delegates dynamic knowledge retention to an external Hierarchical Navigable Small World (HNSW) vector index governed by an Intelligent Memory Orchestrator (IMO). Before committing candidate instances into memory, the IMO evaluates multi-stage verification barriers comprising running class prototype consistency, relative margin discrimination, and neighborhood density outlier filtering, routing anomalous or corrupted inputs to an isolated quarantine buffer. Furthermore, a lightweight Metric Retrieval Adapter trained via supervised contrastive loss aligns semantic embeddings to the domain manifold. We evaluate our framework on the full Microsoft Cats vs. Dogs benchmark ($N=2,500$ verified images) under a leak-free three-way stratified partition across eight representative visual paradigms on both dedicated GPU (`cuda:0`) and 24-thread CPU hardware. The proposed framework achieves 100.0\% test accuracy and a 1.0000 macro F1-score with sub-millisecond query latency (0.15~ms, $>6,700$ queries/second) while maintaining complete backbone parameter invariance ($\nabla_\theta = \mathbf{0}$). Under 30\% synthetic label corruption, naive retrieval degrades to 80.48\%, whereas the IMO intercepts all 525 corrupted instances, preserving 100.0\% accuracy (+19.52\% retention margin). Hardware profiling confirms retrieval latency is hardware-invariant and consumes zero GPU VRAM, providing a sustainable foundation for edge-deployable continual learning.}
+\abstract{Adapting deep visual classifiers to continuous streams of incoming knowledge remains a foundational challenge in intelligent information systems. Conventional approaches rely on gradient backpropagation and parameter fine-tuning, which inevitably incur catastrophic forgetting, substantial energy and computational latency, and severe vulnerability to label corruption. In this paper, we propose a novel non-parametric Retrieval-Based Multi-Modal Learning Framework that decouples visual representation learning from incremental knowledge adaptation. The framework freezes a high-capacity semantic visual encoder (OpenAI CLIP ViT-B/32) and delegates dynamic knowledge retention to an external Hierarchical Navigable Small World (HNSW) vector index governed by an Intelligent Memory Orchestrator (IMO). Before committing candidate instances into memory, the IMO evaluates multi-stage verification barriers comprising running class prototype consistency, relative margin discrimination, and neighborhood density outlier filtering, routing anomalous or corrupted inputs to an isolated quarantine buffer. Furthermore, a lightweight Metric Retrieval Adapter trained via supervised contrastive loss aligns semantic embeddings to the domain manifold. We evaluate our framework on the full Microsoft Cats vs. Dogs benchmark ($N=2,500$ verified images) under a leak-free three-way stratified partition across eight representative visual paradigms on both dedicated GPU (\texttt{cuda:0}) and 24-thread CPU hardware. The proposed framework achieves 100.0\% test accuracy and a 1.0000 macro F1-score with sub-millisecond query latency (0.15~ms, $>6,700$ queries/second) while maintaining complete backbone parameter invariance ($\nabla_\theta = \mathbf{0}$). Under 30\% synthetic label corruption, naive retrieval degrades to 80.48\%, whereas the IMO intercepts all 525 corrupted instances, preserving 100.0\% accuracy (+19.52\% retention margin). Hardware profiling confirms retrieval latency is hardware-invariant and consumes zero GPU VRAM, providing a sustainable foundation for edge-deployable continual learning.}
 
 \keywords{Intelligent Information Systems, Incremental Learning, Multi-Modal Retrieval, Non-Parametric Memory, Intelligent Memory Orchestrator, Catastrophic Forgetting, Edge Computing}
 
@@ -75,7 +75,6 @@ The main scientific contributions of this study are summarized as follows:
 
 The remainder of this article is structured as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:method} provides the mathematical formulation of the framework. Section~\ref{sec:experiments} outlines the benchmark protocol. Section~\ref{sec:results} discusses predictive results and trade-offs. Section~\ref{sec:hardware} details CPU vs. GPU hardware profiling. Section~\ref{sec:noise} examines noise robustness. Section~\ref{sec:discussion} discusses implications, and Section~\ref{sec:conclusion} concludes the paper.
 
----
 
 \section{Related Work}\label{sec:related}
 
@@ -98,7 +97,6 @@ Approximate Nearest Neighbor (ANN) search algorithms, particularly Hierarchical 
 \subsection{Prototype-Based Representation and Label Noise Robustness}
 Prototypical networks~\cite{snell2017prototypical} and nearest-class-mean classifiers~\cite{mensink2013distance} project classes as geometric centroids in metric space. Under noisy label regimes, deep neural networks tend to overfit corrupted labels due to their universal approximation capacity~\cite{han2018co,patrini2017making}. By coupling running metric prototypes with relative class margin discrimination, our proposed IMO provides an automated geometric firewall that detects label corruption prior to memory insertion.
 
----
 
 \section{Proposed Retrieval-Based Framework}\label{sec:method}
 
@@ -223,7 +221,6 @@ P(y = k \mid \mathbf{x}) = \alpha^* P_{\text{clf}}(y = k \mid \mathbf{x}) + (1 -
 \end{equation}
 Hyperparameters $k^*$ and $\alpha^*$ are tuned strictly on the validation partition $\mathcal{D}_{\text{val}}$.
 
----
 
 \section{Experimental Setup and Benchmarking Protocol}\label{sec:experiments}
 
@@ -235,7 +232,7 @@ We enforce a strict, reproducible three-way stratified split:
 \mathcal{D} = \mathcal{D}_{\text{train}} \cup \mathcal{D}_{\text{val}} \cup \mathcal{D}_{\text{test}}, \quad \mathcal{D}_i \cap \mathcal{D}_j = \emptyset \quad \forall i \ne j
 \label{eq:partition_split}
 \end{equation}
-As shown in Table~\ref{tab:split}, the dataset is partitioned into 70\% Train (1,752 samples), 15\% Validation (374 samples), and 15\% Hold-Out Test (374 samples). The partition is deterministically fixed using random seed `777` and cached in JSON format. Every parametric baseline, metric adapter, and vector index is evaluated against the exact same 374 hold-out test samples.
+As shown in Table~\ref{tab:split}, the dataset is partitioned into 70\% Train (1,752 samples), 15\% Validation (374 samples), and 15\% Hold-Out Test (374 samples). The partition is deterministically fixed using random seed \texttt{777} and cached in JSON format. Every parametric baseline, metric adapter, and vector index is evaluated against the exact same 374 hold-out test samples.
 
 \begin{table}[h]
 \caption{Deterministic three-way stratified dataset partitioning ($N=2,500$, Seed 777).}
@@ -277,7 +274,6 @@ To ensure rigorous comparison against parametric baselines, all deep neural netw
 \subsection{Hardware Execution Testbed}
 All experiments were conducted on a physical workstation running 64-bit Windows 10 Pro with dual NVIDIA GeForce RTX 2060 GPUs (6,144~MB GDDR6 VRAM each, CUDA 12.1) and an AMD64 24 logical core host processor with 32~GB system RAM. PyTorch 2.5.1+cu121, Torchvision 0.20.1+cu121, Transformers 4.57.6, and ChromaDB 0.4.x formed the software foundation.
 
----
 
 \section{Empirical Results and Comparative Evaluation}\label{sec:results}
 
@@ -304,7 +300,7 @@ All experiments were conducted on a physical workstation running 64-bit Windows 
 Table~\ref{tab:leaderboard} details the empirical performance of all eight paradigms on the hold-out test set ($N=374$).
 
 \begin{table*}[t]
-\caption{Empirical multi-model benchmark results on GPU (`cuda:0`, Seed 777, $N_{\text{test}} = 374$).}
+\caption{Empirical multi-model benchmark results on GPU (\texttt{cuda:0}, Seed 777, $N_{\text{test}} = 374$).}
 \label{tab:leaderboard}
 \centering
 \resizebox{\textwidth}{!}{
@@ -328,33 +324,32 @@ Fine-Tuned Retrieval & Contrastive Adapter + DB & \textbf{100.0\%} & \textbf{1.0
 \subsection{Analysis of Research Question RQ1}
 As observed in Table~\ref{tab:leaderboard} and Figure~\ref{fig:accuracy}, the Proposed IMO Framework, Fine-Tuned Retrieval Adapter, and Naive Retrieval all attain \textbf{100.0\% test accuracy} (374/374 correct classifications), surpassing the fine-tuned CNN baselines (MobileNet: 97.33\%, EfficientNet: 98.66\%, ResNet18: 99.20\%) and matching/exceeding ViT-B/16 (99.47\%) and CLIP probe (99.73\%).
 
-This confirms **RQ1**: high-capacity pre-trained semantic representations (CLIP ViT-B/32) possess sufficient geometric separability that non-parametric retrieval memory eliminates the need for parametric backbone fine-tuning.
+This confirms \textbf{RQ1}: high-capacity pre-trained semantic representations (CLIP ViT-B/32) possess sufficient geometric separability that non-parametric retrieval memory eliminates the need for parametric backbone fine-tuning.
 
 \subsection{Knowledge Ingestion Latency: Backpropagation vs. Vector Insertion}
 A primary scientific consideration of this thesis is the computational cost of continuous knowledge adaptation:
 \begin{itemize}
-    \item \textbf{Parametric Neural Networks:} Ingesting the training split via 15 epochs of backpropagation required **116.05 seconds** for MobileNetV3-Small, **175.18 seconds** for EfficientNetB0, and **479.95 seconds** ($>8$ minutes) for ViT-B/16.
-    \item \textbf{Proposed IMO Framework:} Building the external HNSW index and calibrating running prototypes across all 1,752 images completed in **1.27 seconds**.
+    \item \textbf{Parametric Neural Networks:} Ingesting the training split via 15 epochs of backpropagation required \textbf{116.05 seconds} for MobileNetV3-Small, \textbf{175.18 seconds} for EfficientNetB0, and \textbf{479.95 seconds} ($>8$ minutes) for ViT-B/16.
+    \item \textbf{Proposed IMO Framework:} Building the external HNSW index and calibrating running prototypes across all 1,752 images completed in \textbf{1.27 seconds}.
 \end{itemize}
-On a per-image basis, updating memory requires a single forward pass (4.43~ms) and an HNSW graph insertion with centroid update (0.15~ms), totaling $<5.0$~ms per instance. This represents an acceleration of over **$23,000\times$** compared to parametric retraining.
+On a per-image basis, updating memory requires a single forward pass (4.43~ms) and an HNSW graph insertion with centroid update (0.15~ms), totaling $<5.0$~ms per instance. This represents an acceleration of over \textbf{$23,000\times$} compared to parametric retraining.
 
 \subsection{Efficiency Frontier and Storage Footprint}
-Figure~\ref{fig:tradeoff} illustrates the accuracy versus latency efficiency frontier. While parametric networks require between 3.30~ms and 10.98~ms per forward pass, vector retrieval queries execute in **0.14~ms to 0.18~ms** ($>5,600$ to $7,150$ images/second). 
+Figure~\ref{fig:tradeoff} illustrates the accuracy versus latency efficiency frontier. While parametric networks require between 3.30~ms and 10.98~ms per forward pass, vector retrieval queries execute in \textbf{0.14~ms to 0.18~ms} ($>5,600$ to $7,150$ images/second). 
 
 Regarding disk storage:
 \begin{itemize}
-    \item ViT-B/16 requires **327.36~MB** to store weights.
-    \item ResNet18 requires **42.71~MB**.
-    \item In contrast, the complete 1,752-sample vector index occupies only **11.59~MB** in ChromaDB ($\approx 6.6$~KB per sample including 512-dim floating-point coordinates and HNSW graph topology).
+    \item ViT-B/16 requires \textbf{327.36~MB} to store weights.
+    \item ResNet18 requires \textbf{42.71~MB}.
+    \item In contrast, the complete 1,752-sample vector index occupies only \textbf{11.59~MB} in ChromaDB ($\approx 6.6$~KB per sample including 512-dim floating-point coordinates and HNSW graph topology).
 \end{itemize}
 
----
 
 \section{Computational Resource Profiling: GPU vs. CPU Constraints}\label{sec:hardware}
 
 To rigorously assess deployment feasibility in resource-constrained edge environments (RQ3), each model was evaluated under two strictly isolated regimes:
-1. \textbf{GPU-Accelerated Mode (`cuda:0`):} Tensor Core parallel dispatch.
-2. \textbf{CPU-Constrained Mode (`cpu`):} Graph execution pinned strictly to the 24-thread CPU host.
+1. \textbf{GPU-Accelerated Mode (\texttt{cuda:0}):} Tensor Core parallel dispatch.
+2. \textbf{CPU-Constrained Mode (\texttt{cpu}):} Graph execution pinned strictly to the 24-thread CPU host.
 
 Empirical measurements are compiled in Table~\ref{tab:hardware} and visualized in Figure~\ref{fig:speedup}.
 
@@ -394,7 +389,6 @@ Fine-Tuned Retrieval & \textbf{0.14 ms} & \textbf{7,152.5 img/s} & \textbf{0.14 
     \item \textbf{Vector Retrieval Latency Is Hardware-Invariant (0.14 -- 0.18 ms):} HNSW vector retrieval queries executed in identical wall-clock time across CPU and GPU ($0.15$~ms). Graph traversal involves pointer-chasing through tree nodes, an irregular memory pattern that modern multi-core CPUs with large L3 caches navigate with extreme efficiency. Furthermore, vector memory resides in system host RAM, requiring \textbf{0.00~MB of GPU VRAM}.
 \end{enumerate}
 
----
 
 \section{Noise Robustness and Memory Curation Analysis}\label{sec:noise}
 
@@ -406,12 +400,12 @@ Fine-Tuned Retrieval & \textbf{0.14 ms} & \textbf{7,152.5 img/s} & \textbf{0.14 
 \end{figure}
 
 \subsection{Hypothesis H1 Verification}
-To address research question **RQ2**, we formulate Hypothesis **H1**:
+To address research question \textbf{RQ2}, we formulate Hypothesis \textbf{H1}:
 \begin{quote}
 \textit{\textbf{Hypothesis H1:} Under increasing label corruption, the Intelligent Memory Orchestrator (IMO) preserves high predictive accuracy by routing corrupted instances into the quarantine buffer, whereas naive retrieval suffers catastrophic accuracy degradation.}
 \end{quote}
 
-Synthetic symmetric label noise was injected into the training pool (1,752 instances) at corruption rates $r \in \{0.00, 0.10, 0.20, 0.30\}$. Binary labels were inverted with probability $r$ under fixed seed `777`. Two parallel systems were benchmarked against the clean hold-out test set ($N=374$):
+Synthetic symmetric label noise was injected into the training pool (1,752 instances) at corruption rates $r \in \{0.00, 0.10, 0.20, 0.30\}$. Binary labels were inverted with probability $r$ under fixed seed \texttt{777}. Two parallel systems were benchmarked against the clean hold-out test set ($N=374$):
 \begin{itemize}
     \item \textbf{System A (Naive Retrieval):} Ingests all candidate embeddings unconditionally into ChromaDB.
     \item \textbf{System B (Proposed IMO Framework):} Filters candidate samples through prototype consistency ($\tau_c = 0.65$) and relative margin gating ($\tau_m = 0.00$).
@@ -437,11 +431,10 @@ Noise Rate & Naive Accuracy & Proposed IMO Accuracy & IMO Quarantined & IMO Acce
 The empirical results in Table~\ref{tab:noise_results} and Figure~\ref{fig:noise_curve} provide conclusive validation of Hypothesis H1:
 \begin{itemize}
     \item \textbf{Collapse of Naive Retrieval:} Under 30\% label noise, Naive Retrieval accuracy plunges from 100.0\% to \textbf{80.48\%} (a 19.52\% degradation). Corrupted vectors in the HNSW graph distort local Voronoi cells, causing nearest-neighbor queries to retrieve mislabeled prototypes.
-    \item \textbf{Perfect Interception by IMO:} The Proposed IMO Framework intercepted and quarantined **exactly 525 corrupted instances** (100\% of injected corrupted vectors).
-    \item \textbf{Pristine Active Memory:} Because active memory remained uncontaminated, the Proposed IMO maintained **100.00\% test accuracy**, delivering a **+19.52\% retention margin** over naive retrieval.
+    \item \textbf{Perfect Interception by IMO:} The Proposed IMO Framework intercepted and quarantined \textbf{exactly 525 corrupted instances} (100\% of injected corrupted vectors).
+    \item \textbf{Pristine Active Memory:} Because active memory remained uncontaminated, the Proposed IMO maintained \textbf{100.00\% test accuracy}, delivering a \textbf{+19.52\% retention margin} over naive retrieval.
 \end{itemize}
 
----
 
 \section{Discussion and Practical Implications}\label{sec:discussion}
 
@@ -460,7 +453,6 @@ While highly effective, the framework exhibits two operational boundaries:
 1. \textbf{Extreme Domain Shift:} If the target visual domain differs radically from CLIP's pretraining corpus (e.g., specialized medical cytology or satellite synthetic aperture radar), frozen semantic features may exhibit reduced linear separability.
 2. \textbf{Memory Scalability:} Although HNSW scales logarithmically in search time, RAM consumption grows linearly with sample count ($\approx 6.6$~MB per 1,000 samples). For billion-scale deployments, product quantization or hierarchical clustering must be integrated.
 
----
 
 \section{Conclusion and Future Work}\label{sec:conclusion}
 
