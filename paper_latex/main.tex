@@ -436,7 +436,7 @@ Noise Rate & Naive Accuracy & Proposed IMO Accuracy & IMO Quarantined & IMO Acce
 \subsection{Empirical Analysis of Noise Resistance}
 The empirical results in Table~\ref{tab:noise_results} and Figure~\ref{fig:noise_curve} provide conclusive validation of Hypothesis H1:
 \begin{itemize}
-    \item \textbf{Collapse of Naive Retrieval:} Under 30\% label noise, Naive Retrieval accuracy plunges from 100.0\% to **80.48\%** (a 19.52\% degradation). Corrupted vectors in the HNSW graph distort local Voronoi cells, causing nearest-neighbor queries to retrieve mislabeled prototypes.
+    \item \textbf{Collapse of Naive Retrieval:} Under 30\% label noise, Naive Retrieval accuracy plunges from 100.0\% to \textbf{80.48\%} (a 19.52\% degradation). Corrupted vectors in the HNSW graph distort local Voronoi cells, causing nearest-neighbor queries to retrieve mislabeled prototypes.
     \item \textbf{Perfect Interception by IMO:} The Proposed IMO Framework intercepted and quarantined **exactly 525 corrupted instances** (100\% of injected corrupted vectors).
     \item \textbf{Pristine Active Memory:} Because active memory remained uncontaminated, the Proposed IMO maintained **100.00\% test accuracy**, delivering a **+19.52\% retention margin** over naive retrieval.
 \end{itemize}
@@ -498,7 +498,7 @@ Not applicable.
 The Microsoft Cats vs. Dogs dataset analyzed during the current study is publicly available. The exact 2,500 validated image subset and deterministic partition splits are included in the project repository.
 
 \bmhead{Code Availability}
-All source code, benchmarking scripts, and reproduction instructions are openly available in the GitHub repository: \url{https://github.com/RoushanKhalid/Thesis}.
+All source code, benchmarking scripts, and reproduction instructions are openly available in the GitHub repository: \url{https://github.com/RoushanKhalid/Retrieval-Incremental-Learning}.
 
 \bmhead{Authors' Contributions}
 \textbf{Sk. Roushan Khalid:} Conceptualization, methodology, software development, formal analysis, empirical benchmarking, visualization, and original draft preparation. \textbf{Md. Shohel Arman:} Research supervision, project administration, validation, methodology review, and critical manuscript revision. Both authors read and approved the final manuscript.
