@@ -1,0 +1,17 @@
+# Hardware and Resource Constraints Configuration
+
+devices:
+  preferred_device: "cuda:0"
+  fallback_device: "cpu"
+  available_gpus: [0, 1]
+  gpu_memory_fraction: 0.85
+  cpu_threads: 12
+
+benchmarking:
+  warmup_runs: 5
+  timed_runs: 20
+  batch_sizes: [1, 16, 32]
+  measure_ram: true
+  measure_vram: true
+  measure_latency: true
+  measure_throughput: true

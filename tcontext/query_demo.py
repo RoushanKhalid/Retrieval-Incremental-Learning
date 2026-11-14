@@ -18,7 +18,7 @@ CLIP_NAME = "openai/clip-vit-base-patch32"
 def _load_clip():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     processor = CLIPProcessor.from_pretrained(CLIP_NAME)
-    model = CLIPModel.from_pretrained(CLIP_NAME).to(device)
+    model = CLIPModel.from_pretrained(CLIP_NAME, use_safetensors=True).to(device)
     model.eval()
     return model, processor, device
 
@@ -42,13 +42,16 @@ def _encode_images(paths, model, processor, device):
 def _open_collection():
     VECTOR_DB_ROOT.mkdir(parents=True, exist_ok=True)
     db_candidates = sorted(
-        [p for p in VECTOR_DB_ROOT.glob("clip_chroma_db*") if p.is_dir()],
+        [p for p in VECTOR_DB_ROOT.glob("*chroma*") if p.is_dir()],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    db_path = db_candidates[0] if db_candidates else VECTOR_DB_ROOT / "clip_chroma_db"
+    db_path = db_candidates[0] if db_candidates else VECTOR_DB_ROOT / "imo_chroma_777"
     db_path.mkdir(parents=True, exist_ok=True)
     client = chromadb.PersistentClient(path=str(db_path))
+    colls = client.list_collections()
+    if colls:
+        return colls[0]
     return client.get_or_create_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
 
 
@@ -94,9 +97,9 @@ def query_image(image_path: Path, top_k: int = 5):
     print("")
     print("Top neighbors:")
     for i, (meta, dist) in enumerate(zip(neighbors, distances), start=1):
-        print(
-            f"{i}. class={meta['class_name']}, distance={dist:.4f}, path={meta['path']}"
-        )
+        cname = meta.get("class_name", "cats" if int(meta.get("label", 0)) == 0 else "dogs")
+        path_str = meta.get("path", "N/A")
+        print(f"{i}. class={cname}, distance={dist:.4f}, path={path_str}")
 
 
 def main():

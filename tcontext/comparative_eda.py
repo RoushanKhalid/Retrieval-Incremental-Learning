@@ -13,8 +13,10 @@ APP_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = APP_DIR
 ARTIFACTS = PROJECT_DIR / "artifacts"
 REPORTS = PROJECT_DIR / "reports"
-SUMMARY_PATH = ARTIFACTS / "sampled25_summary.json"
-COMPARISON_PATH = ARTIFACTS / "sampled25_comparison_metrics.csv"
+SUMMARY_PATH = ARTIFACTS / "benchmark_summary.json"
+LEGACY_SUMMARY_PATH = ARTIFACTS / "sampled25_summary.json"
+COMPARISON_PATH = ARTIFACTS / "benchmark_results_cuda_0.csv"
+LEGACY_COMPARISON_PATH = ARTIFACTS / "sampled25_comparison_metrics.csv"
 HISTORY_PATH = ARTIFACTS / "sampled25_training_history.csv"
 LOG_PATH = PROJECT_DIR.parent / "logs" / "run_sampled25_terminal.log"
 
@@ -108,8 +110,13 @@ def run() -> None:
 
     if COMPARISON_PATH.exists():
         comparison = pd.read_csv(COMPARISON_PATH)
+    elif LEGACY_COMPARISON_PATH.exists():
+        comparison = pd.read_csv(LEGACY_COMPARISON_PATH)
     else:
         comparison = _fallback_comparison_from_readme()
+
+    if "model_name" in comparison.columns and "method" not in comparison.columns:
+        comparison["method"] = comparison["model_name"]
 
     if HISTORY_PATH.exists():
         history = pd.read_csv(HISTORY_PATH)
@@ -122,8 +129,10 @@ def run() -> None:
         _plot_method_metrics(comparison, ARTIFACTS / "comparative_method_metrics.png")
     _plot_learning_curve(history, ARTIFACTS / "comparative_learning_curve.png")
 
-    classifier_row = comparison.loc[comparison["method"].str.contains("Classifier", case=False)].iloc[0]
-    retrieval_row = comparison.loc[~comparison["method"].str.contains("Classifier", case=False)].iloc[0]
+    classifier_mask = comparison["method"].str.contains("EfficientNet|ResNet|Classifier|MobileNet", case=False)
+    retrieval_mask = comparison["method"].str.contains("Retrieval|IMO", case=False)
+    classifier_row = comparison.loc[classifier_mask].iloc[0] if any(classifier_mask) else comparison.iloc[0]
+    retrieval_row = comparison.loc[retrieval_mask].iloc[-1] if any(retrieval_mask) else comparison.iloc[-1]
     delta_acc = float(classifier_row["accuracy"] - retrieval_row["accuracy"])
     delta_f1 = float(classifier_row["f1"] - retrieval_row["f1"])
     max_train_acc = float(history["accuracy"].max()) if not history.empty else None
@@ -190,14 +199,25 @@ def run() -> None:
         "## Computational and Incremental Cost",
     ]
 
-    if summary:
+    if "classifier" in summary and "retrieval" in summary:
         report_lines.extend(
             [
-                f"- Classifier train time (s): `{summary['classifier']['train_seconds']:.4f}`",
-                f"- Retrieval DB build time (s): `{summary['retrieval']['db_build_seconds']:.4f}`",
+                f"- Classifier train time (s): `{summary['classifier'].get('train_seconds', 0.0):.4f}`",
+                f"- Retrieval DB build time (s): `{summary['retrieval'].get('db_build_seconds', 0.0):.4f}`",
                 f"- Retrieval avg add-1-image time (s): `{summary['retrieval'].get('avg_add_image_seconds', 0.0):.4f}`",
                 f"- DL estimated refit for +10 images (s): `{summary.get('incremental_cost_estimates', {}).get('deep_learning_refit_10_images_seconds', 0.0):.4f}`",
                 f"- Retrieval estimated add +10 images (s): `{summary.get('incremental_cost_estimates', {}).get('retrieval_add_10_images_seconds', 0.0):.4f}`",
+            ]
+        )
+    elif "primary_benchmark_table" in summary:
+        clf_item = next((m for m in summary["primary_benchmark_table"] if "EfficientNet" in m["model_name"]), summary["primary_benchmark_table"][0])
+        ret_item = next((m for m in summary["primary_benchmark_table"] if "IMO" in m["model_name"]), summary["primary_benchmark_table"][-1])
+        report_lines.extend(
+            [
+                f"- Baseline DL train time (s): `{clf_item.get('train_time_sec', 0.0):.2f}`",
+                f"- Retrieval memory index time (s): `{ret_item.get('train_time_sec', 0.0):.2f}`",
+                f"- Baseline DL inference latency (ms): `{clf_item.get('avg_ms_per_sample', 0.0):.2f}`",
+                f"- Retrieval inference latency (ms): `{ret_item.get('avg_ms_per_sample', 0.0):.2f}`",
             ]
         )
     else:

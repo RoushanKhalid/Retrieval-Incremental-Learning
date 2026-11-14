@@ -1,0 +1,70 @@
+# Model Comparison Suite Specification
+
+models:
+  mobilenet_v3_small:
+    name: "MobileNetV3-Small"
+    family: "Lightweight CNN"
+    purpose: "Ultra-low latency, resource-constrained CPU/edge execution"
+    pretrained: true
+    weights: "IMAGENET1K_V1"
+    trainable_backbone: false
+    head_type: "linear_probe"
+    input_size: [224, 224]
+
+  efficientnet_b0:
+    name: "EfficientNetB0"
+    family: "Standard CNN Baseline"
+    purpose: "Original thesis baseline, depthwise separable scaling"
+    pretrained: true
+    weights: "IMAGENET1K_V1"
+    trainable_backbone: false
+    head_type: "linear_probe"
+    input_size: [224, 224]
+
+  resnet18:
+    name: "ResNet18"
+    family: "Residual CNN Baseline"
+    purpose: "Canonical convolutional inductive bias with residual connections"
+    pretrained: true
+    weights: "IMAGENET1K_V1"
+    trainable_backbone: false
+    head_type: "linear_probe"
+    input_size: [224, 224]
+
+  vit_b_16:
+    name: "ViT-B/16"
+    family: "Vision Transformer"
+    purpose: "Self-attention transformer architecture, high capacity"
+    pretrained: true
+    weights: "IMAGENET1K_V1"
+    trainable_backbone: false
+    head_type: "linear_probe"
+    input_size: [224, 224]
+
+  clip_vit_b32:
+    name: "CLIP (ViT-B/32)"
+    family: "Vision-Language Multi-Modal"
+    purpose: "High-level semantic multi-modal visual representation"
+    pretrained: true
+    model_id: "openai/clip-vit-base-patch32"
+    trainable_backbone: false
+    head_type: "linear_probe"
+    embedding_dim: 512
+    input_size: [224, 224]
+
+  naive_retrieval_clip:
+    name: "Naive Retrieval (CLIP + ChromaDB)"
+    family: "Basic Retrieval Baseline"
+    purpose: "Non-parametric kNN memory search without quality orchestration"
+    encoder: "clip_vit_b32"
+    vector_store: "chromadb"
+    k: 5
+
+  proposed_imo_framework:
+    name: "Proposed Framework (CLIP + ChromaDB + IMO)"
+    family: "Intelligent Retrieval Framework"
+    purpose: "Thesis core contribution: confidence gating, prototype consistency, outlier filtering, and evidence fusion"
+    encoder: "clip_vit_b32"
+    vector_store: "chromadb"
+    k: 5
+    imo_enabled: true

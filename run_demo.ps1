@@ -1,7 +1,9 @@
 param(
     [int]$Seed = 777,
+    [int]$Epochs = 20,
     [string]$QueryImage = "",
-    [int]$Port = 8501
+    [int]$Port = 8501,
+    [switch]$ForceRebuild = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,16 +19,34 @@ if (!(Test-Path "logs")) {
 }
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$runLog = "logs\thesis_run_${timestamp}.log"
-$latestRunLog = "logs\thesis_run_latest.log"
-$summaryPath = "tcontext\artifacts\sampled25_summary.json"
-$comparisonPath = "tcontext\artifacts\sampled25_comparison_metrics.csv"
-$modelPath = "tcontext\model\cats_vs_dogs_model_quick500.keras"
+$runLog = "logs\thesis_benchmark_${timestamp}.log"
+$latestRunLog = "logs\thesis_benchmark_latest.log"
+$summaryPath = "tcontext\artifacts\benchmark_summary.json"
+$cudaCsv = "tcontext\artifacts\benchmark_results_cuda_0.csv"
 $vectorDbRoot = "tcontext\vector_db"
 
-Write-Host "== Thesis comparative demo =="
-Write-Host "Seed: $Seed"
+Write-Host "== Thesis Multi-Model Benchmarking & Demo Pipeline ==" -ForegroundColor Cyan
+Write-Host "Random Seed: $Seed"
 Write-Host ""
+
+function Get-PythonPath {
+    $candidates = @(
+        "C:\Users\DSLAB\AppData\Local\Programs\Python\Python311\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
+        "$env:ProgramFiles\Python311\python.exe"
+    )
+    foreach ($cand in $candidates) {
+        if (Test-Path $cand) { return $cand }
+    }
+    $cmd = Get-Command python -ErrorAction SilentlyContinue
+    if ($cmd -and $cmd.Source -notmatch "WindowsApps") {
+        return $cmd.Source
+    }
+    return "python"
+}
+
+$pythonExe = Get-PythonPath
+Write-Host "Using Python Runtime: $pythonExe" -ForegroundColor Gray
 
 function Invoke-PythonScript {
     param(
@@ -35,8 +55,7 @@ function Invoke-PythonScript {
         [string]$StdOutPath,
         [string]$StepName
     )
-    Write-Host "Running $StepName..."
-    $pythonExe = (Get-Command python -ErrorAction Stop).Source
+    Write-Host "Executing $StepName..." -ForegroundColor Yellow
     $stderrPath = "$StdOutPath.err.log"
     $allArgs = @($ScriptPath) + $Arguments
     $proc = Start-Process -FilePath $pythonExe -ArgumentList $allArgs -RedirectStandardOutput $StdOutPath -RedirectStandardError $stderrPath -Wait -PassThru
@@ -46,40 +65,36 @@ function Invoke-PythonScript {
     }
     $null = Remove-Item -Path $stderrPath -Force -ErrorAction SilentlyContinue
     if ($proc.ExitCode -ne 0) {
-        Get-Content -Path $StdOutPath -Tail 100
+        Get-Content -Path $StdOutPath -Tail 50
         throw "$StepName failed with exit code $($proc.ExitCode). Check log: $StdOutPath"
     }
 }
 
-$hasRunnableAssets = (Test-Path $modelPath) -and (Test-Path $vectorDbRoot)
-$hasComparativeMetrics = (Test-Path $summaryPath) -and (Test-Path $comparisonPath)
+$hasBenchmarkResults = (Test-Path $summaryPath) -and (Test-Path $cudaCsv)
 
-if (-not $hasRunnableAssets -or -not $hasComparativeMetrics) {
-    $expArgs = @("--seed", "$Seed")
-    if ($QueryImage -ne "") {
-        $expArgs += @("--query-image", $QueryImage)
-    }
-    Invoke-PythonScript -ScriptPath "tcontext/quick500_experiment.py" -Arguments $expArgs -StdOutPath $runLog -StepName "experiment pipeline"
+if ($ForceRebuild -or -not $hasBenchmarkResults) {
+    Write-Host "Running End-to-End Multi-Model Benchmark (Seed: $Seed)..." -ForegroundColor Cyan
+    Invoke-PythonScript -ScriptPath "tcontext\experiments\run_benchmark.py" -Arguments @("--seed", "$Seed") -StdOutPath $runLog -StepName "multi-model benchmark pipeline"
     Copy-Item -Path $runLog -Destination $latestRunLog -Force
-    $edaLog = "logs\comparative_eda_${timestamp}.log"
-    Invoke-PythonScript -ScriptPath "tcontext/comparative_eda.py" -Arguments @() -StdOutPath $edaLog -StepName "comparative EDA generation"
-}
-else {
-    Write-Host "Comparative outputs are ready. Launching dashboard..."
+} else {
+    Write-Host "Verified existing benchmark summary and artifacts in tcontext\artifacts." -ForegroundColor Green
 }
 
+# Free port 8501
 $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 if ($listeners) {
     $pidsToStop = $listeners | Select-Object -ExpandProperty OwningProcess -Unique
     foreach ($pidToStop in $pidsToStop) {
         Stop-Process -Id $pidToStop -Force -ErrorAction SilentlyContinue
     }
+    Start-Sleep -Seconds 1
 }
 
-$streamlitArgs = @("run", "tcontext/web_app.py", "--server.port", "$Port", "--server.headless", "true")
-$streamlitProc = Start-Process -FilePath "streamlit" -ArgumentList $streamlitArgs -PassThru
+Write-Host "Launching Streamlit Thesis Dashboard on Port $Port..." -ForegroundColor Cyan
+$streamlitArgs = @("-m", "streamlit", "run", "tcontext\web_app.py", "--server.port", "$Port", "--server.headless", "false")
+$streamlitProc = Start-Process -FilePath $pythonExe -ArgumentList $streamlitArgs -PassThru
 
-$maxWaitSeconds = 30
+$maxWaitSeconds = 25
 $isReady = $false
 for ($i = 0; $i -lt $maxWaitSeconds; $i++) {
     Start-Sleep -Seconds 1
@@ -92,11 +107,10 @@ for ($i = 0; $i -lt $maxWaitSeconds; $i++) {
 
 if ($isReady) {
     $url = "http://localhost:$Port"
-    Write-Host "Dashboard ready: $url"
+    Write-Host "Dashboard online: $url" -ForegroundColor Green
     Start-Process $url | Out-Null
-}
-else {
-    Write-Warning "Dashboard did not start within $maxWaitSeconds seconds."
+} else {
+    Write-Warning "Dashboard did not open port within $maxWaitSeconds seconds. Check logs."
 }
 
 Wait-Process -Id $streamlitProc.Id

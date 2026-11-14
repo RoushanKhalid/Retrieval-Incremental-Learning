@@ -1,0 +1,40 @@
+# Experiment Configuration for Thesis Multi-Model Benchmark
+
+dataset:
+  name: "cats_vs_dogs"
+  source_dir: "tcontext/data/sampled_25_percent_seed_777"
+  classes: ["cats", "dogs"]
+  image_size: [224, 224]
+  train_ratio: 0.70
+  val_ratio: 0.15
+  test_ratio: 0.15
+  seeds: [777, 42, 123]
+  active_seed: 777
+
+training:
+  batch_size: 32
+  num_workers: 4
+  epochs: 20
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  early_stopping_patience: 6
+  lr_reduce_patience: 2
+  lr_reduce_factor: 0.5
+  label_smoothing: 0.05
+
+retrieval:
+  top_k: 5
+  distance_metric: "cosine"
+  vector_db_type: "chromadb"
+  collection_name: "clip_image_embeddings"
+  chroma_db_dir: "tcontext/vector_db/clip_chroma_db"
+
+imo:
+  prototype_consistency_threshold: 0.65
+  confidence_gate_threshold: 0.75
+  outlier_distance_percentile: 0.90
+  fusion_lambda: 0.5
+  enable_prototype_check: true
+  enable_conflict_check: true
+  enable_outlier_filter: true
+  enable_evidence_fusion: true
