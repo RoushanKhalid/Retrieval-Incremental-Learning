@@ -6,7 +6,11 @@ import chromadb
 import torch
 import torch.nn.functional as F
 from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
+try:
+    from transformers import CLIPModel, CLIPProcessor
+except (ImportError, AttributeError):
+    from transformers.models.clip.modeling_clip import CLIPModel
+    from transformers.models.clip.processing_clip import CLIPProcessor
 
 PROJECT_DIR = Path(__file__).resolve().parent
 VECTOR_DB_ROOT = PROJECT_DIR / "vector_db"

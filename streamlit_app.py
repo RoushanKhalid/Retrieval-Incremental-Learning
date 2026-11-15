@@ -1,4 +1,5 @@
 import os
+import runpy
 import sys
 from pathlib import Path
 
@@ -13,12 +14,4 @@ if str(ROOT_DIR) not in sys.path:
 
 # Execute the modern multi-model research dashboard
 web_app_file = TCONTEXT_DIR / "web_app.py"
-
-with open(web_app_file, "r", encoding="utf-8") as f:
-    code = f.read()
-
-# Execute in the context of web_app.py
-exec(compile(code, str(web_app_file), "exec"), {
-    "__file__": str(web_app_file),
-    "__name__": "__main__"
-})
+runpy.run_path(str(web_app_file), run_name="__main__")

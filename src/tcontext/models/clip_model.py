@@ -9,7 +9,11 @@ import torch
 from PIL import Image
 from torch import nn
 from torch.utils.data import DataLoader
-from transformers import CLIPModel, CLIPProcessor
+try:
+    from transformers import CLIPModel, CLIPProcessor
+except (ImportError, AttributeError):
+    from transformers.models.clip.modeling_clip import CLIPModel
+    from transformers.models.clip.processing_clip import CLIPProcessor
 
 from .base_model import BaseClassifier
 

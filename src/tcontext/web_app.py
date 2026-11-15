@@ -32,7 +32,11 @@ import torch
 import torch.nn.functional as F
 import torchvision.models as tv_models
 from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
+try:
+    from transformers import CLIPModel, CLIPProcessor
+except (ImportError, AttributeError):
+    from transformers.models.clip.modeling_clip import CLIPModel
+    from transformers.models.clip.processing_clip import CLIPProcessor
 
 # -----------------------------------------------------------------------------
 # Configuration and Path Resolution
