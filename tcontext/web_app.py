@@ -266,6 +266,12 @@ def encode_single_image(img: Image.Image) -> np.ndarray:
     inputs = processor(images=[img.convert("RGB")], return_tensors="pt", padding=True).to(device)
     with torch.inference_mode():
         features = model.get_image_features(**inputs)
+        if hasattr(features, "image_embeds"):
+            features = features.image_embeds
+        elif hasattr(features, "pooler_output"):
+            features = features.pooler_output
+        elif not isinstance(features, torch.Tensor):
+            features = features[0]
         features = F.normalize(features, dim=-1)
     return features.cpu().numpy().reshape(-1)
 
