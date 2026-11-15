@@ -867,19 +867,24 @@ def render_commands_tab():
 
     cmds = [
         {
-            "title": "Run Multi-Model Benchmark (GPU / CPU)",
-            "command": f'"{py_exe}" tcontext/experiments/run_benchmark.py --seed 777',
-            "description": "Executes training, evaluation, hardware profiling, and noise benchmarks across all 7 models."
+            "title": "One-Click Dashboard Launcher (Windows Batch)",
+            "command": "run.bat",
+            "description": "Double-click run.bat in Windows Explorer or run from terminal to free port 8501, start Streamlit, and open the browser."
         },
         {
-            "title": "One-Click App Launcher (PowerShell)",
-            "command": ".\\launch_app.ps1",
-            "description": "Powershell script to clean port 8501 and launch this Streamlit interface."
+            "title": "Run Multi-Model Benchmark Suite",
+            "command": "run.bat --benchmark",
+            "description": "Executes training, evaluation, hardware profiling, and noise benchmarks across all models."
         },
         {
-            "title": "Full Pipeline + Launch (PowerShell)",
-            "command": ".\\run_demo.ps1 -Seed 777",
-            "description": "Verifies or rebuilds benchmark artifacts and starts the dashboard."
+            "title": "Run Verification Test Suite",
+            "command": "run.bat --test",
+            "description": "Executes all unit and integration test fixtures via pytest."
+        },
+        {
+            "title": "Single Image Query Demo",
+            "command": 'run.bat --query --query-image "tcontext/data/full_dataset/cats/00000.jpg" --top-k 3',
+            "description": "Classifies a query image using non-parametric vector retrieval memory."
         }
     ]
 

@@ -208,12 +208,12 @@ pip install -r requirements.txt
 ```
 
 ### 2. Launch Interactive Research Dashboard
-```powershell
-# One-click launcher
-.\launch_app.ps1
+```cmd
+:: One-click launcher (double-click in Windows Explorer or run from terminal)
+run.bat
 
-# Or run directly with Streamlit
-streamlit run tcontext\web_app.py --server.port 8501
+:: Or run directly with Streamlit
+streamlit run streamlit_app.py --server.port 8501
 ```
 
 ### 3. Run Single Image Query Demo
