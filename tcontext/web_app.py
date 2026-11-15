@@ -18,6 +18,14 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+# Streamlit Community Cloud SQLite3 compatibility shim
+try:
+    __import__("pysqlite3")
+    import sys
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except (ImportError, KeyError):
+    pass
+
 # Suppress framework noise
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
@@ -231,8 +239,9 @@ def load_torchvision_classifier(arch_name: str):
 
 
 @st.cache_resource
-def get_vector_collection(collection_name: str = "imo_memory"):
-    """Load or locate persistent ChromaDB collection."""
+def get_vector_collection(collection_name: str = "clip_image_embeddings"):
+    """Load or locate persistent ChromaDB collection, auto-bootstrapping seed memory if empty."""
+    col = None
     # Look for existing collections in vector_db/
     if VECTOR_DB_DIR.exists():
         candidates = [
@@ -245,17 +254,38 @@ def get_vector_collection(collection_name: str = "imo_memory"):
                 try:
                     client = chromadb.PersistentClient(path=str(c))
                     colls = client.list_collections()
-                    if colls:
-                        return colls[0]
+                    if colls and colls[0].count() > 0:
+                        col = colls[0]
+                        break
                 except Exception:
                     continue
 
-    default_path = VECTOR_DB_DIR / "imo_chroma_777"
-    default_path.mkdir(parents=True, exist_ok=True)
-    client = chromadb.PersistentClient(path=str(default_path))
-    return client.get_or_create_collection(
-        name=collection_name, metadata={"hnsw:space": "cosine"}
-    )
+    if col is None:
+        default_path = VECTOR_DB_DIR / "imo_chroma_777"
+        default_path.mkdir(parents=True, exist_ok=True)
+        client = chromadb.PersistentClient(path=str(default_path))
+        col = client.get_or_create_collection(
+            name=collection_name, metadata={"hnsw:space": "cosine"}
+        )
+
+    # Auto-bootstrap seed memory for cloud deployment (e.g. Streamlit Community Cloud)
+    if col.count() == 0:
+        seed_file = ARTIFACTS_DIR / "demo_memory_seed.json"
+        if not seed_file.exists() and (REPO_ROOT / "tcontext" / "artifacts" / "demo_memory_seed.json").exists():
+            seed_file = REPO_ROOT / "tcontext" / "artifacts" / "demo_memory_seed.json"
+        if seed_file.exists():
+            try:
+                with open(seed_file, "r", encoding="utf-8") as f:
+                    seed_data = json.load(f)
+                col.add(
+                    ids=seed_data["ids"],
+                    embeddings=seed_data["embeddings"],
+                    metadatas=seed_data["metadatas"]
+                )
+            except Exception:
+                pass
+
+    return col
 
 
 # -----------------------------------------------------------------------------

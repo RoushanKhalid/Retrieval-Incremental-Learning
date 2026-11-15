@@ -1,5 +1,6 @@
 # Streamlit Community Cloud Dependencies
 streamlit>=1.35.0
+pysqlite3-binary; sys_platform == "linux"
 torch>=2.0.0
 torchvision>=0.15.0
 transformers>=4.40.0
