@@ -41,22 +41,47 @@ except (ImportError, AttributeError):
 # -----------------------------------------------------------------------------
 # Configuration and Path Resolution
 # -----------------------------------------------------------------------------
+def find_repo_root(start_path: Path) -> Path:
+    current = start_path.resolve()
+    for parent in [current] + list(current.parents):
+        if (parent / ".git").exists() or (parent / "paper_latex").exists():
+            return parent
+    return start_path.resolve().parent
+
+
 APP_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = APP_DIR
-REPO_ROOT = PROJECT_DIR.parent
+REPO_ROOT = find_repo_root(APP_DIR)
+
+# Project root holding data, artifacts, reports, and vector_db
+if (REPO_ROOT / "tcontext" / "artifacts").exists():
+    PROJECT_DIR = REPO_ROOT / "tcontext"
+elif (APP_DIR / "artifacts").exists():
+    PROJECT_DIR = APP_DIR
+else:
+    PROJECT_DIR = REPO_ROOT
+
 os.chdir(str(PROJECT_DIR))
 
 ARTIFACTS_DIR = PROJECT_DIR / "artifacts"
 REPORTS_DIR = PROJECT_DIR / "reports"
 
-if (PROJECT_DIR / "data" / "full_dataset").exists():
-    DATA_DIR = PROJECT_DIR / "data" / "full_dataset"
-elif (PROJECT_DIR / "data" / "sampled_25_percent_seed_777").exists():
-    DATA_DIR = PROJECT_DIR / "data" / "sampled_25_percent_seed_777"
-else:
-    DATA_DIR = PROJECT_DIR / "data" / "sampled_10_percent"
+# Search for dataset root
+DATA_DIR = PROJECT_DIR / "data"
+for candidate_data in [
+    PROJECT_DIR / "data" / "full_dataset",
+    REPO_ROOT / "tcontext" / "data" / "full_dataset",
+    PROJECT_DIR / "data" / "sampled_25_percent_seed_777",
+    REPO_ROOT / "tcontext" / "data" / "sampled_25_percent_seed_777",
+    PROJECT_DIR / "data" / "sampled_10_percent",
+    REPO_ROOT / "tcontext" / "data" / "sampled_10_percent",
+]:
+    if candidate_data.exists():
+        DATA_DIR = candidate_data
+        break
 
 VECTOR_DB_DIR = PROJECT_DIR / "vector_db"
+if not VECTOR_DB_DIR.exists() and (REPO_ROOT / "tcontext" / "vector_db").exists():
+    VECTOR_DB_DIR = REPO_ROOT / "tcontext" / "vector_db"
 
 SUMMARY_PATH = ARTIFACTS_DIR / "benchmark_summary.json"
 CUDA_CSV_PATH = ARTIFACTS_DIR / "benchmark_results_cuda_0.csv"
@@ -70,6 +95,65 @@ else:
 
 CLASS_NAMES = ["cats", "dogs"]
 CLIP_MODEL_NAME = "openai/clip-vit-base-patch32"
+
+
+# -----------------------------------------------------------------------------
+# Robust Scientific Figure & Image Resolvers
+# -----------------------------------------------------------------------------
+def get_figure_path(*names: str) -> Path | None:
+    """
+    Search for a figure file across candidate directories in order of visual quality:
+    1. paper_latex/figures (300 DPI publication renders)
+    2. paper/figures (paper mirror)
+    3. tcontext/artifacts / PROJECT_DIR/artifacts (empirical outputs & aliases)
+    4. tcontext/reports / PROJECT_DIR/reports (supplementary plots)
+    """
+    search_dirs = [
+        REPO_ROOT / "paper_latex" / "figures",
+        REPO_ROOT / "paper" / "figures",
+        PROJECT_DIR / "artifacts",
+        REPO_ROOT / "tcontext" / "artifacts",
+        PROJECT_DIR / "reports",
+        REPO_ROOT / "tcontext" / "reports",
+    ]
+    for d in search_dirs:
+        if not d.exists():
+            continue
+        for name in names:
+            p = d / name
+            if p.is_file():
+                return p
+    return None
+
+
+def resolve_image_path(path_str: str) -> Path | None:
+    """Resolve an image path stored in metadata, split files, or relative queries."""
+    if not path_str or path_str == "N/A":
+        return None
+    p = Path(path_str)
+    if p.is_file():
+        return p
+    # Relative to REPO_ROOT or PROJECT_DIR
+    if (REPO_ROOT / p).is_file():
+        return REPO_ROOT / p
+    if (PROJECT_DIR / p).is_file():
+        return PROJECT_DIR / p
+    # If path references data directory with historical machine-specific prefix
+    str_p = str(p).replace("\\", "/")
+    if "data/" in str_p:
+        rel = str_p.split("data/", 1)[1]
+        for base_data in [
+            PROJECT_DIR / "data",
+            REPO_ROOT / "tcontext" / "data",
+        ]:
+            if (base_data / rel).is_file():
+                return base_data / rel
+    # Search by filename in DATA_DIR and any subdirectories
+    if DATA_DIR.exists():
+        for candidate in DATA_DIR.rglob(p.name):
+            if candidate.is_file():
+                return candidate
+    return None
 
 
 # -----------------------------------------------------------------------------
@@ -94,15 +178,22 @@ def load_csv(path_str: str):
 
 @st.cache_data(show_spinner=False)
 def get_sample_images():
-    if not DATA_DIR.exists():
-        # Fallback to any sampled directory
-        candidates = list(PROJECT_DIR.glob("data/sampled*"))
-        if candidates and (candidates[0] / "cats").exists():
-            root = candidates[0]
-        else:
-            return [], []
-    else:
-        root = DATA_DIR
+    search_dirs = [
+        DATA_DIR,
+        PROJECT_DIR / "data" / "full_dataset",
+        REPO_ROOT / "tcontext" / "data" / "full_dataset",
+        PROJECT_DIR / "data" / "sampled_25_percent_seed_777",
+        REPO_ROOT / "tcontext" / "data" / "sampled_25_percent_seed_777",
+        PROJECT_DIR / "data" / "sampled_10_percent",
+        REPO_ROOT / "tcontext" / "data" / "sampled_10_percent",
+    ]
+    root = None
+    for d in search_dirs:
+        if d.exists() and (d / "cats").exists() and (d / "dogs").exists():
+            root = d
+            break
+    if root is None:
+        return [], []
 
     cats = sorted(list((root / "cats").glob("*.jpg")) + list((root / "cats").glob("*.png")))
     dogs = sorted(list((root / "dogs").glob("*.jpg")) + list((root / "dogs").glob("*.png")))
@@ -373,13 +464,37 @@ def render_leaderboard_tab():
     st.markdown("---")
     st.markdown("#### Comparative Visualization Artifacts")
     col1, col2 = st.columns(2)
-    acc_plot = ARTIFACTS_DIR / "multi_model_accuracy_comparison.png"
-    tradeoff_plot = ARTIFACTS_DIR / "latency_vs_accuracy_tradeoff.png"
+    fig2_path = get_figure_path("fig2_accuracy_comparison.png", "multi_model_accuracy_comparison.png")
+    fig3_path = get_figure_path("fig3_latency_accuracy_tradeoff.png", "latency_vs_accuracy_tradeoff.png")
 
-    if acc_plot.exists():
-        col1.image(str(acc_plot), caption="Figure 1: Multi-Model Predictive Performance Comparison")
-    if tradeoff_plot.exists():
-        col2.image(str(tradeoff_plot), caption="Figure 2: Accuracy vs Inference Latency Efficiency Frontier")
+    if fig2_path:
+        col1.image(
+            str(fig2_path),
+            caption="Figure 2: Multi-Model Predictive Performance & Generalization (100.0% Test Accuracy)",
+            use_container_width=True
+        )
+    if fig3_path:
+        col2.image(
+            str(fig3_path),
+            caption="Figure 3: Accuracy vs Inference Latency Efficiency Frontier (Pareto Sub-Millisecond Retrieval)",
+            use_container_width=True
+        )
+
+    with st.expander("📊 Supplementary Training & Ablation Reports", expanded=False):
+        rep1, rep2 = st.columns(2)
+        plot_comp = get_figure_path("comparative_method_metrics.png")
+        plot_train = get_figure_path("training and building time.png")
+        plot_cost = get_figure_path("incremental update cost comparison.png")
+        plot_cm = get_figure_path("comparison_confusion_matricespng.png")
+
+        if plot_comp:
+            rep1.image(str(plot_comp), caption="Method Performance Metrics Breakdown", use_container_width=True)
+        if plot_train:
+            rep2.image(str(plot_train), caption="Supervised Training Epoch Time vs Retrieval Ingestion", use_container_width=True)
+        if plot_cost:
+            rep1.image(str(plot_cost), caption="Incremental Update Cost Comparison", use_container_width=True)
+        if plot_cm:
+            rep2.image(str(plot_cm), caption="Held-Out Test Confusion Matrices", use_container_width=True)
 
 
 def render_hardware_tab():
@@ -429,9 +544,18 @@ def render_hardware_tab():
         )
 
     st.markdown("---")
-    speedup_plot = ARTIFACTS_DIR / "cpu_vs_gpu_speedup.png"
-    if speedup_plot.exists():
-        st.image(str(speedup_plot), caption="Figure 3: CPU vs GPU Inference Latency Profile (Log Scale)")
+    fig4_path = get_figure_path("fig4_cpu_vs_gpu_speedup.png", "cpu_vs_gpu_speedup.png")
+    if fig4_path:
+        st.image(
+            str(fig4_path),
+            caption="Figure 4: CPU vs GPU Hardware Inference Latency Profile & Acceleration Speedup (Log Scale)",
+            use_container_width=True
+        )
+
+    with st.expander("⏱️ Detailed Computation & System Resource Utilization", expanded=False):
+        plot_comp_time = get_figure_path("time and computation cost.png")
+        if plot_comp_time:
+            st.image(str(plot_comp_time), caption="Computational Cost & Execution Time Profile", use_container_width=True)
 
 
 def render_imo_tab():
@@ -441,6 +565,16 @@ def render_imo_tab():
         "multi-stage verification gates: Class Prototype Consistency, Relative Margin Gating, "
         "Memory Conflict Checking, and Outlier Filtering."
     )
+
+    fig1_path = get_figure_path("fig1_architecture.png")
+    if fig1_path:
+        st.markdown("#### System Architecture: Dual-Stream Decoupled Ingestion & Inference")
+        st.image(
+            str(fig1_path),
+            caption="Figure 1: Retrieval-Incremental Multi-Modal Architecture (Stage A: Incremental Knowledge Ingestion & Memory Curation Stream; Stage B: Sub-Millisecond Online Inference & Dynamic Evidence Fusion Stream)",
+            use_container_width=True
+        )
+        st.markdown("---")
 
     c1, c2 = st.columns(2)
     with c1:
@@ -466,6 +600,16 @@ def render_imo_tab():
             - $\\alpha = 0.0$: Pure non-parametric semantic vector retrieval
             - $\\alpha = 0.5$: Balanced multi-modal evidence fusion
             """
+        )
+
+    fig6_path = get_figure_path("fig6_imo_pipeline.png")
+    if fig6_path:
+        st.markdown("---")
+        st.markdown("#### Intelligent Memory Orchestrator Quality Verification Pipeline")
+        st.image(
+            str(fig6_path),
+            caption="Figure 6: Intelligent Memory Orchestrator (IMO) Multi-Stage Quarantine & Curation Pipeline",
+            use_container_width=True
         )
 
     st.markdown("---")
@@ -523,9 +667,13 @@ def render_noise_tab():
         )
 
     st.markdown("---")
-    noise_plot = ARTIFACTS_DIR / "noise_robustness_curve.png"
-    if noise_plot.exists():
-        st.image(str(noise_plot), caption="Figure 4: Test Accuracy Retention Under Synthetic Label Noise Corruption")
+    fig5_path = get_figure_path("fig5_noise_robustness_curve.png", "noise_robustness_curve.png")
+    if fig5_path:
+        st.image(
+            str(fig5_path),
+            caption="Figure 5: Test Accuracy Retention Under Synthetic Label Noise Corruption (Hypothesis H1)",
+            use_container_width=True
+        )
 
 
 def render_live_inference_tab():
@@ -626,8 +774,24 @@ def render_live_inference_tab():
             st.caption(f"Fused: P(Cat)={fused_p_cat:.3f}, P(Dog)={fused_p_dog:.3f}")
 
     if ret_res and not ret_res["neighbors"].empty:
-        with st.expander("Inspect Retrieved Nearest Neighbors in Vector Memory", expanded=False):
+        with st.expander("Inspect Retrieved Nearest Neighbors in Vector Memory", expanded=True):
             st.dataframe(ret_res["neighbors"], use_container_width=True, hide_index=True)
+
+            # Display visual thumbnails of retrieved neighbors if available
+            st.markdown("##### Visual Nearest Neighbor Matches")
+            n_cols = min(5, len(ret_res["neighbors"]))
+            cols = st.columns(n_cols)
+            for idx, row in ret_res["neighbors"].head(5).iterrows():
+                with cols[idx]:
+                    img_file = resolve_image_path(str(row["Path"]))
+                    if img_file and img_file.exists():
+                        st.image(
+                            str(img_file),
+                            caption=f"Rank {row['Rank']}: {row['Class']} (Sim: {row['Similarity']})",
+                            use_container_width=True
+                        )
+                    else:
+                        st.info(f"Rank {row['Rank']}: {row['Class']}\nSim: {row['Similarity']}")
 
     st.markdown("---")
     st.markdown("#### ⚡ Incremental Memory Knowledge Integration (Zero Fine-Tuning)")
@@ -667,10 +831,19 @@ def render_live_inference_tab():
         if passed:
             t0 = time.time()
             doc_id = f"inc_{inc_label_str}_{uuid.uuid4().hex[:8]}"
+            save_name = f"uploaded_{doc_id}.jpg"
+            save_path = PROJECT_DIR / "data" / inc_label_str / save_name
+            try:
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                candidate_img.save(save_path)
+                meta_path = str(save_path.relative_to(PROJECT_DIR))
+            except Exception:
+                meta_path = inc_upload.name
+
             col.add(
                 ids=[doc_id],
                 embeddings=[emb.tolist()],
-                metadatas=[{"label": inc_label_idx, "path": inc_upload.name}]
+                metadatas=[{"label": inc_label_idx, "path": meta_path, "class_name": inc_label_str}]
             )
             elapsed_ms = (time.time() - t0) * 1000.0
             st.success(f"✅ Accepted by IMO! Knowledge inserted in {elapsed_ms:.2f} ms without fine-tuning.")

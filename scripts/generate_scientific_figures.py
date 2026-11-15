@@ -43,13 +43,21 @@ plt.rcParams.update({
     "ytick.labelsize": 9.5,
 })
 
-# Path resolution: support both paper_latex and paper/
+# Path resolution: support paper_latex, paper/, and tcontext/artifacts
 FIGURES_DIRS = [
     Path("paper_latex/figures"),
     Path("paper/figures"),
+    Path("tcontext/artifacts"),
 ]
 for d in FIGURES_DIRS:
     d.mkdir(parents=True, exist_ok=True)
+
+ALIASES = {
+    "fig2_accuracy_comparison": ["multi_model_accuracy_comparison"],
+    "fig3_latency_accuracy_tradeoff": ["latency_vs_accuracy_tradeoff"],
+    "fig4_cpu_vs_gpu_speedup": ["cpu_vs_gpu_speedup"],
+    "fig5_noise_robustness_curve": ["noise_robustness_curve"],
+}
 
 # Find empirical artifacts
 ARTIFACT_PATHS = [
@@ -79,12 +87,15 @@ with open(NOISE_JSON, "r") as f:
 
 
 def save_figure(fig, base_name):
-    """Save figure in both PDF and 300 DPI PNG across target directories."""
+    """Save figure in both PDF and 300 DPI PNG across target directories, including legacy aliases."""
+    all_names = [base_name] + ALIASES.get(base_name, [])
     for d in FIGURES_DIRS:
-        fig.savefig(d / f"{base_name}.png", dpi=300, bbox_inches="tight", facecolor="white")
+        d.mkdir(parents=True, exist_ok=True)
+        for name in all_names:
+            fig.savefig(d / f"{name}.png", dpi=300, bbox_inches="tight", facecolor="white")
         fig.savefig(d / f"{base_name}.pdf", bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    print(f"✓ Saved {base_name}.png and {base_name}.pdf")
+    print(f"✓ Saved {base_name}.png (aliases: {ALIASES.get(base_name, [])}) and {base_name}.pdf")
 
 
 # ==============================================================================
