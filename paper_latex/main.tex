@@ -52,8 +52,8 @@ To protect vector memory from data poisoning and erroneous insertions, we introd
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.98\textwidth]{figures/fig1_architecture.png}
-\caption{System architecture of the proposed Retrieval-Based Multi-Modal Learning Framework. The frozen visual backbone extracts normalized semantic embeddings $\mathbf{e}$, which are projected via the Metric Retrieval Adapter into $\mathbf{z}$. Candidate instances for incremental insertion pass through the Intelligent Memory Orchestrator (IMO) gating barriers before committing to ChromaDB HNSW memory. Inference combines parametric posteriors with non-parametric retrieval evidence via Dynamic Evidence Fusion.}
+\includegraphics[width=0.98\textwidth]{figures/fig1_architecture}
+\caption{System architecture of the proposed Retrieval-Based Multi-Modal Learning Framework. The frozen semantic visual backbone (CLIP ViT-B/32, $\nabla_\theta = \mathbf{0}$) extracts normalized 512-dimensional representations $\mathbf{e}$, which are aligned via the lightweight Metric Retrieval Adapter $g_\phi$ into $\mathbf{z}$. During incremental knowledge integration, candidate instances $(\mathbf{z}_t, y_t)$ are audited by the Intelligent Memory Orchestrator (IMO) multi-stage quality firewall; verified instances commit to ChromaDB HNSW memory with running prototype updates, while anomalous or mislabeled instances are routed to the non-destructive quarantine buffer $\mathcal{Q}$. During inference, non-parametric nearest-neighbor retrieval posteriors are fused with parametric base classifier predictions via Dynamic Evidence Fusion.}
 \label{fig:architecture}
 \end{figure*}
 
@@ -152,7 +152,14 @@ Given a query vector $\mathbf{z}_q$, the database retrieves the $k$-nearest neig
 \end{equation}
 
 \subsection{Intelligent Memory Orchestrator (IMO)}
-Standard vector indexing blindly inserts any incoming candidate $(\mathbf{z}_t, y_t)$, exposing retrieval to label noise and out-of-distribution contamination. The proposed Intelligent Memory Orchestrator (IMO) governs the ingestion pipeline through three sequential quality gating stages (Algorithm~\ref{alg:imo}):
+Standard vector indexing blindly inserts any incoming candidate $(\mathbf{z}_t, y_t)$, exposing retrieval to label noise and out-of-distribution contamination. The proposed Intelligent Memory Orchestrator (IMO) governs the ingestion pipeline through three sequential quality gating stages, formalized in Algorithm~\ref{alg:imo} and visually outlined in Figure~\ref{fig:imo_pipeline}:
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{figures/fig6_imo_pipeline}
+\caption{Sequential multi-stage verification pipeline of the Intelligent Memory Orchestrator (IMO). Every candidate embedding $\mathbf{z}_t$ must successfully traverse: (1) running prototype consistency ($\tau_c = 0.65$), (2) relative margin discrimination ($\tau_m = 0.00$), and (3) neighborhood outlier density filtering ($\tau_{\text{outlier}} = 0.45$). Candidates failing any check are diverted to the non-destructive quarantine buffer $\mathcal{Q}$ with error reason metadata, completely insulating active HNSW memory from label noise and distribution drift.}
+\label{fig:imo_pipeline}
+\end{figure*}
 
 \begin{algorithm}[h]
 \caption{Intelligent Memory Orchestrator (IMO) Ingestion Pipeline}
@@ -198,7 +205,12 @@ The candidate is subjected to absolute and relative geometric bounds:
 If an input labeled as class $y_t$ lies closer to an opposing prototype than its claimed category centroid, Gate 2 identifies it as a mislabeled or highly ambiguous sample.
 
 \subsubsection{Stage 3: Outlier Density and Local Neighborhood Verification}
-For candidates passing prototype verification, a local $K$-nearest neighbor check is executed against active memory. If the mean neighborhood cosine distance exceeds $\tau_{\text{outlier}} = 0.45$, the candidate is flagged as an isolated anomaly.
+For candidates passing prototype verification, a local $K$-nearest neighbor query is executed against active memory $\mathcal{M}$ ($K=5$). The mean neighborhood cosine distance is verified against density threshold $\tau_{\text{outlier}}$:
+\begin{equation}
+\text{Gate}_3: \quad \bar{D} = \frac{1}{K} \sum_{i \in \mathcal{N}_K(\mathbf{z}_t)} D_{\text{cos}}(\mathbf{z}_t, \mathbf{z}_i) \le \tau_{\text{outlier}} \quad (\tau_{\text{outlier}} = 0.45)
+\label{eq:gate3}
+\end{equation}
+If $\bar{D} > \tau_{\text{outlier}}$, the candidate resides in a sparse or anomalous manifold region and is treated as an out-of-distribution outlier.
 
 \subsubsection{Non-Destructive Quarantine Buffer}
 Rejected samples are preserved in an isolated buffer:
@@ -279,21 +291,9 @@ All experiments were conducted on a physical workstation running 64-bit Windows 
 
 \begin{figure*}[t]
 \centering
-\begin{subfigure}[b]{0.49\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{figures/fig2_accuracy_comparison.png}
-    \caption{Multi-model test accuracy comparison across paradigms.}
-    \label{fig:accuracy}
-\end{subfigure}
-\hfill
-\begin{subfigure}[b]{0.49\textwidth}
-    \centering
-    \includegraphics[width=\textwidth]{figures/fig3_latency_accuracy_tradeoff.png}
-    \caption{Accuracy vs. inference latency efficiency frontier.}
-    \label{fig:tradeoff}
-\end{subfigure}
-\caption{Empirical evaluation across eight visual paradigms on the hold-out test set ($N=374$).}
-\label{fig:results_plots}
+\includegraphics[width=0.98\textwidth]{figures/fig2_accuracy_comparison}
+\caption{Multi-model empirical evaluation across eight visual learning paradigms on the hold-out test set ($N=374$, Seed 777). (a) Predictive accuracy and macro F1 scores, contrasting fine-tuned parametric baselines against non-parametric vector retrieval. (b) Computational wall-clock time required for knowledge adaptation, illustrating a $>200\times$ acceleration of non-parametric vector ingestion over iterative gradient backpropagation.}
+\label{fig:accuracy}
 \end{figure*}
 
 \subsection{Primary Performance Leaderboard}
@@ -314,12 +314,21 @@ ResNet18 & Residual CNN (Fine-Tuned) & 99.20\% & 0.9894 & 0.9947 & 0.9920 & 0.99
 ViT-B/16 & Vision Transformer (Fine-Tuned) & 99.47\% & 0.9947 & 0.9947 & 0.9947 & 0.9997 & 479.95 s & 10.98 ms/img \\
 CLIP (ViT-B/32) & Foundation Vision-Language & 99.73\% & 0.9947 & 1.0000 & 0.9973 & 1.0000 & 173.16 s & 4.43 ms/img \\
 \midrule
-Naive Retrieval & Vector Index (ChromaDB) & \textbf{100.0\%} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{0.80 s} & \textbf{0.18 ms/img} \\
-Fine-Tuned Retrieval & Contrastive Adapter + DB & \textbf{100.0\%} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{0.69 s} & \textbf{0.14 ms/img} \\
-\textbf{Proposed IMO Framework} & \textbf{Vector Index + IMO Orchestrator} & \textbf{100.0\%} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.27 s} & \textbf{0.15 ms/img} \\
+Naive Retrieval & Vector Index (ChromaDB) & \textbf{100.0\%} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{0.80 s} & \textbf{0.18 ms/img*} \\
+Fine-Tuned Retrieval & Contrastive Adapter + DB & \textbf{100.0\%} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{0.69 s} & \textbf{0.14 ms/img*} \\
+\textbf{Proposed IMO Framework} & \textbf{Vector Index + IMO Orchestrator} & \textbf{100.0\%} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.0000} & \textbf{1.27 s} & \textbf{0.15 ms/img*} \\
 \bottomrule
 \end{tabular*}}
+\vspace{1ex}
+{\raggedright \footnotesize *Note: Retrieval latency denotes non-parametric HNSW index lookup given pre-extracted 512-dim visual embeddings. True end-to-end inference from an un-encoded image tensor includes the invariant CLIP encoder forward pass (4.43~ms GPU / 17.40~ms CPU), yielding 4.58~ms total latency on GPU and 17.55~ms on CPU.\par}
 \end{table*}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig3_latency_accuracy_tradeoff}
+\caption{Inference efficiency frontier: hold-out test accuracy versus wall-clock inference latency per sample (ms, log scale). Vector retrieval operations execute in 0.14--0.18~ms ($>6,700$~queries/sec), while full end-to-end image inference requires 4.58~ms on dedicated GPU (\texttt{cuda:0}) while preserving 100.0\% accuracy without parameter degradation.}
+\label{fig:tradeoff}
+\end{figure}
 
 \subsection{Analysis of Research Question RQ1}
 As observed in Table~\ref{tab:leaderboard} and Figure~\ref{fig:accuracy}, the Proposed IMO Framework, Fine-Tuned Retrieval Adapter, and Naive Retrieval all attain \textbf{100.0\% test accuracy} (374/374 correct classifications), surpassing the fine-tuned CNN baselines (MobileNet: 97.33\%, EfficientNet: 98.66\%, ResNet18: 99.20\%) and matching/exceeding ViT-B/16 (99.47\%) and CLIP probe (99.73\%).
@@ -353,12 +362,12 @@ To rigorously assess deployment feasibility in resource-constrained edge environ
 
 Empirical measurements are compiled in Table~\ref{tab:hardware} and visualized in Figure~\ref{fig:speedup}.
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=0.75\textwidth]{figures/fig4_cpu_vs_gpu_speedup.png}
-\caption{CPU vs. GPU inference latency speedup factor across evaluated architectures.}
+\includegraphics[width=0.98\textwidth]{figures/fig4_cpu_vs_gpu_speedup}
+\caption{Hardware execution profiling and architectural dependency across dedicated GPU (\texttt{cuda:0}) and host CPU constraints. (a) Per-sample inference latency (ms, log scale) showing that Vision Transformers degrade severely on CPU (surging from 10.98~ms to 62.40~ms), whereas vector retrieval latency is completely invariant (0.14--0.18~ms). (b) Architectural hardware speedup factor ($\text{CPU} / \text{GPU}$) demonstrating that vector retrieval operates with zero GPU dependency ($1.00\times$) and requires 0.00~MB dedicated GPU VRAM.}
 \label{fig:speedup}
-\end{figure}
+\end{figure*}
 
 \begin{table*}[t]
 \caption{Hardware profiling and resource utilization across GPU and CPU constraints ($N_{\text{test}} = 374$).}
@@ -392,12 +401,12 @@ Fine-Tuned Retrieval & \textbf{0.14 ms} & \textbf{7,152.5 img/s} & \textbf{0.14 
 
 \section{Noise Robustness and Memory Curation Analysis}\label{sec:noise}
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\includegraphics[width=0.75\textwidth]{figures/fig5_noise_robustness_curve.png}
-\caption{Predictive accuracy retention curves under synthetic label corruption (0\% to 30\%) on the hold-out test set ($N=374$).}
+\includegraphics[width=0.98\textwidth]{figures/fig5_noise_robustness_curve}
+\caption{Noise robustness stress test under increasing synthetic label corruption (0\% to 30\%) on the hold-out test set ($N=374$). (a) Test accuracy retention curves showing that Naive Retrieval collapses to 80.48\% under 30\% noise, whereas the Proposed IMO maintains 100.0\% accuracy (+19.52\% retention margin). (b) Automated quarantine breakdown by the IMO, confirming that exactly 100\% of corrupted instances (175 at 10\%, 350 at 20\%, and 525 at 30\%) are intercepted and quarantined with zero active memory contamination.}
 \label{fig:noise_curve}
-\end{figure}
+\end{figure*}
 
 \subsection{Hypothesis H1 Verification}
 To address research question \textbf{RQ2}, we formulate Hypothesis \textbf{H1}:

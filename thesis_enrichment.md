@@ -71,20 +71,29 @@ graph TD
 ```
 
 ### IMO Decision Pipeline
-1. **Prototype consistency check**  
-   Accept candidate $(z_{new}, y)$ if:
+The Intelligent Memory Orchestrator executes a three-stage sequential quality validation gate prior to admitting any incoming sample $(\mathbf{z}_t, y_t)$ into the permanent vector memory:
+
+1. **Gate 1: Prototype Consistency Check**  
+   Evaluates alignment against the running normalized class centroid $\mathbf{p}_y$:
    $$
-   \cos(z_{new}, P_y)\ge \tau_c
+   \text{Gate}_1: \quad S_{\text{proto}}(\mathbf{z}_t, y) = \frac{\mathbf{z}_t \cdot \mathbf{p}_y}{\|\mathbf{z}_t\| \|\mathbf{p}_y\|} \ge \tau_c \quad (\tau_c = 0.65)
    $$
-   where $P_y$ is the class prototype and $\tau_c$ is a consistency threshold.
 
-2. **Label conflict detection**  
-   If nearest neighbors strongly support labels $\neq y$, mark as uncertain and route to quarantine.
+2. **Gate 2: Relative Margin Check (Label Conflict Detection)**  
+   Ensures the sample is closer to its claimed class prototype than to any competing class prototype:
+   $$
+   \text{Gate}_2: \quad S_{\text{rel}}(\mathbf{z}_t, y) = S_{\text{proto}}(\mathbf{z}_t, y) - \max_{c \neq y} S_{\text{proto}}(\mathbf{z}_t, c) \ge \tau_m \quad (\tau_m = 0.00)
+   $$
 
-3. **Outlier detection**  
-   Periodically run density-based filtering (for example, DBSCAN or Isolation Forest) to remove low-density noise points.
+3. **Gate 3: Local Outlier Density Filtering**  
+   Evaluates the mean cosine distance across its $K$-nearest neighbors ($K=5$) in the existing vector index:
+   $$
+   \text{Gate}_3: \quad \bar{D}(\mathbf{z}_t) = \frac{1}{K} \sum_{i \in \mathcal{N}_K(\mathbf{z}_t)} D_{\text{cos}}(\mathbf{z}_t, \mathbf{z}_i) \le \tau_{\text{outlier}} \quad (\tau_{\text{outlier}} = 0.45)
+   $$
 
-4. **Temporal reliability weighting**  
+If all three gates evaluate to true, $(\mathbf{z}_t, y_t)$ is committed to ChromaDB and updates running prototype $\mathbf{p}_y$. If any gate fails, the sample is immediately diverted to the isolated Quarantine Buffer for human-in-the-loop audit without contaminating the retrieval index.
+
+4. **Temporal Reliability Weighting**  
    Maintain reliability score:
    $$
    q_i=\alpha \cdot \text{source\_trust} + \beta \cdot e^{-\lambda\Delta t} + \gamma \cdot \text{agreement\_rate}
@@ -185,5 +194,5 @@ Operationally, this shifts cost from repeated training runs to controllable inde
 
 ---
 
-## 11) Practical Note for Your Current Implementation
-If your practical setup uses **MobileNetV2**, define it clearly as the **frozen parametric backbone**, while the vector database acts as **dynamic non-parametric memory**. This explicit separation strengthens your theoretical framing and aligns your implementation with your thesis claim.
+## 11) Empirical Implementation Configuration
+The empirical framework implemented in this repository uses OpenAI's **CLIP ViT-B/32** (`clip-vit-base-patch32`, 512-dimensional normalized embeddings) as the **frozen parametric visual backbone**, while an external HNSW vector index (ChromaDB) serves as the **dynamic non-parametric memory**. For comparative benchmarking, four parametric transfer learning architectures are evaluated under identical leak-free splits: MobileNetV3-Small, EfficientNetB0, ResNet18, and Vision Transformer ViT-B/16. This explicit separation operationalizes the dual-memory paradigm and enables rigorous ablation of parameter-free incremental adaptation.
