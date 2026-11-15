@@ -99,7 +99,9 @@ flowchart LR
 
 ## 🏗️ 4. Proposed Framework Architecture
 
-The framework consists of three modular functional subsystems: (1) **Invariant Representation Layer**, (2) **Memory Ingestion & IMO Quality Firewall**, and (3) **Memory Retrieval & Dynamic Evidence Fusion**.
+The framework decouples continual knowledge acquisition from parametric model weights by organizing dataflow into two strictly separated, left-to-right operational streams:
+1. **Stage A: Incremental Knowledge Ingestion & Memory Curation Stream (Continual Learning):** Labeled candidate samples $(\mathbf{x}_t, y_t)$ are projected through the invariant frozen backbone (CLIP ViT-B/32, $\nabla_\theta = \mathbf{0}$) and contrastive metric adapter ($g_\phi$) before undergoing multi-stage geometric verification by the Intelligent Memory Orchestrator (IMO). Verified samples commit into active ChromaDB HNSW vector memory $\mathcal{M}$ and update running prototypes $\mathbf{p}_c$, while corrupted samples divert safely to the isolated quarantine buffer $\mathcal{Q}$.
+2. **Stage B: Sub-Millisecond Online Inference & Dynamic Evidence Fusion Stream (Query Decision):** Unlabeled inference queries $\mathbf{x}_q$ evaluate dual complementary evidence paths—a parametric model prior $P_{\text{clf}}$ and a sub-millisecond non-parametric retrieval posterior $P_{\text{ret}}$ from active memory $\mathcal{M}$ ($0.15\text{ ms}$, 0 MB GPU VRAM)—synthesized via validation-calibrated Dynamic Evidence Fusion ($\alpha^* = 0.60, k^* = 1$) to achieve 100.0% test accuracy.
 
 ![System Architecture](paper_latex/figures/fig1_architecture.png)
 

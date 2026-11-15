@@ -90,172 +90,333 @@ def save_figure(fig, base_name):
 # ==============================================================================
 # FIGURE 1: Overall System Architecture (Dual-Stream Modular Design)
 # ==============================================================================
+def draw_card(ax, xy, width, height, title="", subtitle="", badge="", badge_colors=("#EFF6FF", "#1D4ED8"),
+              facecolor="#FFFFFF", edgecolor="#CBD5E1", linewidth=1.4, rounding=0.08, zorder=2):
+    """Draw a professional card container with rounded corners and optional badge/header."""
+    x, y = xy
+    box = FancyBboxPatch((x, y), width, height, boxstyle=f"round,pad=0.06,rounding_size={rounding}",
+                         facecolor=facecolor, edgecolor=edgecolor, linewidth=linewidth, zorder=zorder)
+    ax.add_patch(box)
+    
+    top_y = y + height
+    if badge:
+        bg_col, text_col = badge_colors
+        ax.text(x + width/2, top_y - 0.20, badge, fontsize=7.0, fontweight="bold", color=text_col,
+                ha="center", va="center", zorder=zorder+1,
+                bbox=dict(boxstyle="round,pad=0.18", facecolor=bg_col, edgecolor=edgecolor, lw=0.6))
+    if title:
+        title_y = top_y - (0.46 if badge else 0.26)
+        ax.text(x + width/2, title_y, title, fontsize=8.6, fontweight="bold", color="#0F172A",
+                ha="center", va="center", zorder=zorder+1)
+    if subtitle:
+        sub_y = top_y - (0.70 if badge else 0.48)
+        ax.text(x + width/2, sub_y, subtitle, fontsize=7.2, color="#475569",
+                ha="center", va="center", zorder=zorder+1)
+    return box
+
+def draw_arrow(ax, p1, p2, color="#2563EB", linewidth=1.6, mutation_scale=13, linestyle="-", label="",
+               label_pos=0.5, label_bg="#EFF6FF", label_border="#BFDBFE", label_color="#1E40AF", zorder=4):
+    """Draw a clean directional connection arrow with optional text chip."""
+    arrow = FancyArrowPatch(p1, p2, arrowstyle="-|>", mutation_scale=mutation_scale,
+                            linewidth=linewidth, color=color, linestyle=linestyle, zorder=zorder)
+    ax.add_patch(arrow)
+    if label:
+        x_lbl = p1[0] + (p2[0] - p1[0]) * label_pos
+        y_lbl = p1[1] + (p2[1] - p1[1]) * label_pos
+        ax.text(x_lbl, y_lbl, label, fontsize=6.8, fontweight="bold", color=label_color,
+                ha="center", va="center", zorder=zorder+2,
+                bbox=dict(boxstyle="round,pad=0.15", facecolor=label_bg, edgecolor=label_border, lw=0.6))
+    return arrow
+
 def generate_figure1():
-    fig, ax = plt.subplots(figsize=(14.0, 7.2), dpi=300)
-    ax.set_xlim(0, 14.0)
-    ax.set_ylim(0, 7.2)
+    fig, ax = plt.subplots(figsize=(14.6, 9.5), dpi=300)
+    ax.set_xlim(0, 14.6)
+    ax.set_ylim(0, 9.5)
     ax.axis("off")
 
-    # Background Panels
-    # Panel A: Frozen Representation Extraction
-    p1 = FancyBboxPatch((0.3, 0.4), 3.8, 6.4, boxstyle="round,pad=0.1,rounding_size=0.12",
-                        facecolor="#F8FAFC", edgecolor="#CBD5E1", linewidth=1.4, zorder=0)
-    ax.add_patch(p1)
-    ax.text(2.2, 6.48, "REPRESENTATION EXTRACTION", fontsize=9.5, fontweight="bold", color="#1E3A8A", ha="center")
-    ax.text(2.2, 6.20, r"Invariant Parametric Encoder ($\nabla_\theta = \mathbf{0}$)", fontsize=8.2, color="#475569", ha="center")
+    # ==========================================================================
+    # OVERALL CONTAINER FRAMES (STAGE A & STAGE B)
+    # ==========================================================================
+    # Frame A: Stage A - Ingestion & Memory Curation
+    f_mode1 = FancyBboxPatch((0.25, 4.90), 14.10, 4.35, boxstyle="round,pad=0.1,rounding_size=0.10",
+                             facecolor="#F8FAFC", edgecolor="#94A3B8", linewidth=1.5, zorder=0)
+    ax.add_patch(f_mode1)
+    
+    # Stage A Banner
+    ax.text(0.50, 9.02, "STAGE A: INCREMENTAL KNOWLEDGE INGESTION & MEMORY CURATION (CONTINUAL LEARNING STREAM)",
+            fontsize=10.0, fontweight="bold", color="#1E3A8A", ha="left", va="center")
+    ax.text(0.50, 8.78, r"Non-parametric knowledge retention with strictly invariant visual backbone ($\nabla_\theta = \mathbf{0}$) and 3-stage automated quality gating",
+            fontsize=7.8, color="#475569", ha="left", va="center")
 
-    # Panel B: Intelligent Memory Orchestrator (IMO)
-    p2 = FancyBboxPatch((4.4, 0.4), 4.6, 6.4, boxstyle="round,pad=0.1,rounding_size=0.12",
-                        facecolor="#F0FDF4", edgecolor="#86EFAC", linewidth=1.4, zorder=0)
-    ax.add_patch(p2)
-    ax.text(6.7, 6.48, "QUALITY FIREWALL (IMO)", fontsize=9.5, fontweight="bold", color="#166534", ha="center")
-    ax.text(6.7, 6.20, "Three-Stage Non-Parametric Validation", fontsize=8.2, color="#475569", ha="center")
+    # Frame B: Stage B - Inference & Dynamic Evidence Fusion
+    f_mode2 = FancyBboxPatch((0.25, 0.25), 14.10, 4.25, boxstyle="round,pad=0.1,rounding_size=0.10",
+                             facecolor="#FAF5FF", edgecolor="#C084FC", linewidth=1.5, zorder=0)
+    ax.add_patch(f_mode2)
+    
+    # Stage B Banner (Concise to guarantee zero overlap with feed link at x=8.725)
+    ax.text(0.50, 4.25, "STAGE B: SUB-MILLISECOND INFERENCE & EVIDENCE FUSION (ONLINE QUERY STREAM)",
+            fontsize=10.0, fontweight="bold", color="#581C87", ha="left", va="center")
+    ax.text(0.50, 4.02, r"Dual-evidence decision consensus combining parametric prior with non-parametric retrieval",
+            fontsize=7.8, color="#475569", ha="left", va="center")
 
-    # Panel C: Memory & Dynamic Evidence Fusion
-    p3 = FancyBboxPatch((9.3, 0.4), 4.4, 6.4, boxstyle="round,pad=0.1,rounding_size=0.12",
-                        facecolor="#FAF5FF", edgecolor="#D8B4FE", linewidth=1.4, zorder=0)
-    ax.add_patch(p3)
-    ax.text(11.5, 6.48, "MEMORY & EVIDENCE FUSION", fontsize=9.5, fontweight="bold", color="#581C87", ha="center")
-    ax.text(11.5, 6.20, "Sub-Millisecond HNSW + Dynamic Consensus", fontsize=8.2, color="#475569", ha="center")
+    # ==========================================================================
+    # STAGE A: INCREMENTAL KNOWLEDGE INGESTION (TOP HALF)
+    # ==========================================================================
+    # 1. Candidate Input (Col 1)
+    draw_card(ax, (0.45, 5.45), 1.65, 3.05,
+              title="Candidate Sample",
+              badge="INPUT STREAM",
+              badge_colors=("#EFF6FF", "#1D4ED8"),
+              facecolor="#FFFFFF", edgecolor="#3B82F6", linewidth=1.6)
+    ax.text(1.275, 7.50, r"$(\mathbf{x}_t, y_t)$", fontsize=10.5, fontweight="bold", color="#0F172A", ha="center")
+    ax.text(1.275, 7.00, r"$\mathbf{x}_t \in \mathbb{R}^{224 \times 224 \times 3}$", fontsize=8.0, color="#334155", ha="center")
+    ax.text(1.275, 6.65, r"$y_t \in \{0, 1\}$ (Class)", fontsize=7.8, color="#334155", ha="center")
+    ax.text(1.275, 6.15, "Continuous Ingestion", fontsize=7.4, color="#64748B", ha="center")
+    ax.text(1.275, 5.80, "Zero Stored Replay Data", fontsize=7.2, fontstyle="italic", color="#64748B", ha="center")
 
-    # ------------------ PANEL A CARDS ------------------
-    # 1. Visual Input
-    c_input = FancyBboxPatch((0.55, 4.4), 3.3, 1.45, boxstyle="round,pad=0.08,rounding_size=0.08",
-                             facecolor="#FFFFFF", edgecolor="#3B82F6", linewidth=1.6, zorder=2)
-    ax.add_patch(c_input)
-    ax.text(2.2, 5.42, "Visual Input", fontsize=10.5, fontweight="bold", color="#1E3A8A", ha="center")
-    ax.text(2.2, 4.95, r"$\mathbf{x} \in \mathbb{R}^{H \times W \times 3} \quad (224 \times 224 \text{ RGB})$",
-            fontsize=9.2, color="#1E293B", ha="center")
-    ax.text(2.2, 4.60, "Ingestion Sample or Inference Query", fontsize=7.8, color="#64748B", ha="center")
+    # Arrow 1: Input -> Frozen Backbone
+    draw_arrow(ax, (2.10, 6.95), (2.50, 6.95), color="#2563EB", label=r"$\mathbf{x}_t$", label_pos=0.5)
 
-    # 2. Frozen Visual Backbone
-    c_backbone = FancyBboxPatch((0.55, 2.5), 3.3, 1.45, boxstyle="round,pad=0.08,rounding_size=0.08",
-                                facecolor="#EFF6FF", edgecolor="#2563EB", linewidth=1.6, zorder=2)
-    ax.add_patch(c_backbone)
-    ax.text(2.2, 3.52, "Frozen CLIP Visual Backbone", fontsize=10.0, fontweight="bold", color="#1E40AF", ha="center")
-    ax.text(2.2, 3.08, r"$f_\theta(\mathbf{x}) \to \mathbf{e} = \frac{f_\theta(\mathbf{x})}{\|f_\theta(\mathbf{x})\|_2} \in \mathbb{R}^{512}$",
-            fontsize=9.2, color="#1E293B", ha="center")
-    ax.text(2.2, 2.70, r"Parameter Weights Invariant: $\nabla_\theta = \mathbf{0}$", fontsize=8.0, fontweight="bold", color="#2563EB", ha="center")
+    # 2. Frozen Semantic Backbone (Col 2)
+    draw_card(ax, (2.50, 5.45), 1.85, 3.05,
+              title="Frozen Backbone",
+              subtitle="CLIP ViT-B/32",
+              badge="INVARIANT ENCODER",
+              badge_colors=("#F0F9FF", "#0369A1"),
+              facecolor="#FFFFFF", edgecolor="#0284C7", linewidth=1.6)
+    
+    ax.text(3.425, 7.10, r"$\nabla_\theta = \mathbf{0} \quad (\text{Invariant})$", fontsize=8.0, fontweight="bold", color="#0369A1",
+            ha="center", bbox=dict(boxstyle="round,pad=0.18", facecolor="#E0F2FE", edgecolor="#BAE6FD", lw=0.6))
+    ax.text(3.425, 6.55, r"$\mathbf{e}_t = \frac{f_\theta(\mathbf{x}_t)}{\|f_\theta(\mathbf{x}_t)\|_2} \in \mathbb{R}^{512}$",
+            fontsize=8.2, fontweight="bold", color="#0F172A", ha="center")
+    ax.text(3.425, 6.05, "Zero Backpropagation", fontsize=7.5, color="#334155", ha="center")
+    ax.text(3.425, 5.75, "Prevents Catastrophic Drift", fontsize=7.2, fontstyle="italic", color="#64748B", ha="center")
 
-    # 3. Metric Retrieval Adapter
-    c_adapter = FancyBboxPatch((0.55, 0.65), 3.3, 1.45, boxstyle="round,pad=0.08,rounding_size=0.08",
-                               facecolor="#FFFFFF", edgecolor="#475569", linewidth=1.6, zorder=2)
-    ax.add_patch(c_adapter)
-    ax.text(2.2, 1.68, "Metric Retrieval Adapter", fontsize=10.0, fontweight="bold", color="#0F172A", ha="center")
-    ax.text(2.2, 1.25, r"$\mathbf{z} = \mathrm{Norm}\left(\mathbf{e} + g_\phi(\mathbf{e})\right)$",
-            fontsize=9.2, fontweight="bold", color="#0F172A", ha="center")
-    ax.text(2.2, 0.88, r"Supervised Contrastive Head ($\tau = 0.07$)", fontsize=7.8, color="#64748B", ha="center")
+    # Arrow 2: Backbone -> Metric Adapter
+    draw_arrow(ax, (4.35, 6.95), (4.75, 6.95), color="#0284C7", label=r"$\mathbf{e}_t$", label_pos=0.5)
 
-    # Vertical connectors in Panel A
-    ax.add_patch(FancyArrowPatch((2.2, 4.4), (2.2, 3.95), arrowstyle="-|>", mutation_scale=14, linewidth=1.8, color="#2563EB", zorder=3))
-    ax.add_patch(FancyArrowPatch((2.2, 2.5), (2.2, 2.10), arrowstyle="-|>", mutation_scale=14, linewidth=1.8, color="#2563EB", zorder=3))
+    # 3. Metric Retrieval Adapter (Col 3)
+    draw_card(ax, (4.75, 5.45), 1.85, 3.05,
+              title="Metric Adapter",
+              subtitle=r"Residual Head $g_\phi$",
+              badge="CONTRASTIVE ALIGNMENT",
+              badge_colors=("#EEF2FF", "#4338CA"),
+              facecolor="#FFFFFF", edgecolor="#4F46E5", linewidth=1.6)
+    
+    ax.text(5.675, 7.10, "526K Params (<0.35%)", fontsize=7.6, fontweight="bold", color="#4338CA",
+            ha="center", bbox=dict(boxstyle="round,pad=0.18", facecolor="#E0E7FF", edgecolor="#C7D2FE", lw=0.6))
+    ax.text(5.675, 6.55, r"$\mathbf{z}_t = \mathrm{Norm}(\mathbf{e}_t + g_\phi(\mathbf{e}_t))$",
+            fontsize=8.2, fontweight="bold", color="#0F172A", ha="center")
+    ax.text(5.675, 6.05, r"SupCon Loss ($\tau = 0.07$)", fontsize=7.5, color="#334155", ha="center")
+    ax.text(5.675, 5.75, "Maximizes Class Margin", fontsize=7.2, fontstyle="italic", color="#64748B", ha="center")
 
-    # ------------------ PANEL B: IMO GATES ------------------
-    # Gate 1: Consistency
-    g1 = FancyBboxPatch((4.65, 4.5), 4.1, 1.35, boxstyle="round,pad=0.08,rounding_size=0.08",
-                        facecolor="#FFFFFF", edgecolor="#16A34A", linewidth=1.5, zorder=2)
-    ax.add_patch(g1)
-    ax.text(6.7, 5.45, "Gate 1: Prototype Consistency Check", fontsize=9.2, fontweight="bold", color="#14532D", ha="center")
-    ax.text(6.7, 5.02, r"$S_{\mathrm{proto}}(\mathbf{z}_t, y) = \frac{\mathbf{z}_t \cdot \mathbf{p}_y}{\|\mathbf{z}_t\| \|\mathbf{p}_y\|} \geq \tau_c$",
-            fontsize=9.0, color="#0F172A", ha="center")
-    ax.text(6.7, 4.68, r"Threshold: $\tau_c = 0.65$", fontsize=8.0, fontweight="bold", color="#16A34A", ha="center")
+    # Arrow 3: Adapter -> IMO Quality Firewall
+    draw_arrow(ax, (6.60, 6.95), (7.00, 6.95), color="#4F46E5", label=r"$(\mathbf{z}_t, y_t)$", label_pos=0.5)
 
-    # Gate 2: Margin Conflict
-    g2 = FancyBboxPatch((4.65, 2.95), 4.1, 1.35, boxstyle="round,pad=0.08,rounding_size=0.08",
-                        facecolor="#FFFFFF", edgecolor="#16A34A", linewidth=1.5, zorder=2)
-    ax.add_patch(g2)
-    ax.text(6.7, 3.90, "Gate 2: Relative Margin Verification", fontsize=9.2, fontweight="bold", color="#14532D", ha="center")
-    ax.text(6.7, 3.47, r"$S_{\mathrm{rel}}(\mathbf{z}_t, y) = S_{\mathrm{proto}}(\mathbf{z}_t, y) - \max_{c \neq y} S_{\mathrm{proto}}(\mathbf{z}_t, c) \geq \tau_m$",
-            fontsize=8.5, color="#0F172A", ha="center")
-    ax.text(6.7, 3.12, r"Threshold: $\tau_m = 0.00$ (Rejects Label Conflicts)", fontsize=8.0, fontweight="bold", color="#16A34A", ha="center")
+    # 4. Intelligent Memory Orchestrator (IMO Firewall) Panel (Col 4)
+    p_imo = FancyBboxPatch((7.00, 5.05), 4.55, 3.45, boxstyle="round,pad=0.08,rounding_size=0.08",
+                           facecolor="#F0FDF4", edgecolor="#16A34A", linewidth=1.6, linestyle="--", zorder=1)
+    ax.add_patch(p_imo)
+    ax.text(9.275, 8.28, "INTELLIGENT MEMORY ORCHESTRATOR (IMO FIREWALL)", fontsize=8.6, fontweight="bold", color="#14532D", ha="center")
+    ax.text(9.275, 8.05, "Multi-Stage Non-Parametric Verification Prior to Memory Retention", fontsize=7.2, color="#15803D", ha="center")
 
-    # Gate 3: Outlier Density
-    g3 = FancyBboxPatch((4.65, 1.40), 4.1, 1.35, boxstyle="round,pad=0.08,rounding_size=0.08",
-                        facecolor="#FFFFFF", edgecolor="#16A34A", linewidth=1.5, zorder=2)
-    ax.add_patch(g3)
-    ax.text(6.7, 2.35, "Gate 3: Local Outlier Density Filter", fontsize=9.2, fontweight="bold", color="#14532D", ha="center")
-    ax.text(6.7, 1.92, r"$\bar{D}(\mathbf{z}_t) = \frac{1}{K}\sum_{i \in \mathcal{N}_K(\mathbf{z}_t)} D_{\mathrm{cos}}(\mathbf{z}_t, \mathbf{z}_i) \leq \tau_{\mathrm{out}}$",
-            fontsize=8.8, color="#0F172A", ha="center")
-    ax.text(6.7, 1.58, r"Threshold: $\tau_{\mathrm{out}} = 0.45 \quad (K=5)$", fontsize=8.0, fontweight="bold", color="#16A34A", ha="center")
+    # Gate 1: Consistency Check
+    draw_card(ax, (7.15, 6.00), 1.25, 1.80,
+              title="Gate 1",
+              subtitle="Consistency",
+              facecolor="#FFFFFF", edgecolor="#16A34A", linewidth=1.4)
+    ax.text(7.775, 6.85, r"$\mathbf{z}_t^\top \mathbf{p}_{y_t} \geq \tau_c$", fontsize=8.5, fontweight="bold", color="#0F172A", ha="center")
+    ax.text(7.775, 6.45, r"$\tau_c = 0.65$", fontsize=7.8, fontweight="bold", color="#16A34A", ha="center")
+    ax.text(7.775, 6.15, "Prototype Match", fontsize=6.8, color="#64748B", ha="center")
 
-    # Sequential Gate Flow (Pass Arrows)
-    ax.add_patch(FancyArrowPatch((6.7, 4.5), (6.7, 4.30), arrowstyle="-|>", mutation_scale=12, linewidth=1.5, color="#16A34A", zorder=3))
-    ax.add_patch(FancyArrowPatch((6.7, 2.95), (6.7, 2.75), arrowstyle="-|>", mutation_scale=12, linewidth=1.5, color="#16A34A", zorder=3))
+    # Gate 1 -> Gate 2 Arrow
+    draw_arrow(ax, (8.40, 6.90), (8.65, 6.90), color="#16A34A", linewidth=1.5, label="Pass", label_bg="#DCFCE7", label_border="#86EFAC", label_color="#14532D")
 
-    # Quarantine Buffer Card (Bottom)
-    c_quar = FancyBboxPatch((4.65, 0.45), 4.1, 0.65, boxstyle="round,pad=0.06,rounding_size=0.06",
-                            facecolor="#FEF2F2", edgecolor="#DC2626", linewidth=1.4, zorder=2)
-    ax.add_patch(c_quar)
-    ax.text(6.7, 0.85, r"Quarantine Buffer $\mathcal{Q}$ (Isolated Audit)", fontsize=8.5, fontweight="bold", color="#991B1B", ha="center")
-    ax.text(6.7, 0.60, r"Preserves $(\mathbf{z}_t, y_t, \text{reason})$ without memory contamination", fontsize=7.2, color="#B91C1C", ha="center")
+    # Gate 2: Margin Check
+    draw_card(ax, (8.65, 6.00), 1.25, 1.80,
+              title="Gate 2",
+              subtitle="Rel. Margin",
+              facecolor="#FFFFFF", edgecolor="#16A34A", linewidth=1.4)
+    ax.text(9.275, 6.85, r"$\Delta S_{\mathrm{rel}} \geq \tau_m$", fontsize=8.5, fontweight="bold", color="#0F172A", ha="center")
+    ax.text(9.275, 6.45, r"$\tau_m = 0.00$", fontsize=7.8, fontweight="bold", color="#16A34A", ha="center")
+    ax.text(9.275, 6.15, "Rejects Conflicts", fontsize=6.8, color="#64748B", ha="center")
 
-    # Failure arrows to Quarantine Trunk
-    ax.plot([8.75, 8.90], [5.18, 5.18], color="#DC2626", linewidth=1.3, linestyle="--", zorder=3)
-    ax.plot([8.75, 8.90], [3.62, 3.62], color="#DC2626", linewidth=1.3, linestyle="--", zorder=3)
-    ax.plot([8.75, 8.90], [2.08, 2.08], color="#DC2626", linewidth=1.3, linestyle="--", zorder=3)
-    ax.plot([8.90, 8.90], [5.18, 0.78], color="#DC2626", linewidth=1.3, linestyle="--", zorder=3)
-    ax.add_patch(FancyArrowPatch((8.90, 0.78), (8.75, 0.78), arrowstyle="-|>", mutation_scale=11, linewidth=1.3, color="#DC2626", linestyle="--", zorder=4))
-    ax.text(8.83, 3.0, "Fail Any Gate", fontsize=7.2, fontweight="bold", color="#DC2626", rotation=90, va="center", ha="center")
+    # Gate 2 -> Gate 3 Arrow
+    draw_arrow(ax, (9.90, 6.90), (10.15, 6.90), color="#16A34A", linewidth=1.5, label="Pass", label_bg="#DCFCE7", label_border="#86EFAC", label_color="#14532D")
 
-    # Ingestion Stream Connector (Adapter -> Gate 1)
-    ax.plot([3.85, 4.15], [1.38, 1.38], color="#16A34A", linewidth=1.8, zorder=3)
-    ax.plot([4.15, 4.15], [1.38, 5.18], color="#16A34A", linewidth=1.8, zorder=3)
-    ax.add_patch(FancyArrowPatch((4.15, 5.18), (4.65, 5.18), arrowstyle="-|>", mutation_scale=14, linewidth=1.8, color="#16A34A", zorder=4))
-    ax.text(4.15, 3.25, r"Candidate $(\mathbf{z}_t, y_t)$", fontsize=7.5, fontweight="bold", color="#15803D", rotation=90, va="center", ha="center",
-            bbox=dict(boxstyle="square,pad=0.15", facecolor="#F0FDF4", edgecolor="#86EFAC", lw=0.8))
+    # Gate 3: Outlier Density Filter
+    draw_card(ax, (10.15, 6.00), 1.25, 1.80,
+              title="Gate 3",
+              subtitle="Density",
+              facecolor="#FFFFFF", edgecolor="#16A34A", linewidth=1.4)
+    ax.text(10.775, 6.85, r"$\bar{D}_{K=5} \leq \tau_{\mathrm{out}}$", fontsize=8.2, fontweight="bold", color="#0F172A", ha="center")
+    ax.text(10.775, 6.45, r"$\tau_{\mathrm{out}} = 0.45$", fontsize=7.8, fontweight="bold", color="#16A34A", ha="center")
+    ax.text(10.775, 6.15, "Filter Outliers", fontsize=6.8, color="#64748B", ha="center")
 
-    # ------------------ PANEL C: MEMORY & FUSION ------------------
-    # Active Vector Store (ChromaDB HNSW)
-    c_vstore = FancyBboxPatch((9.55, 4.15), 3.9, 1.75, boxstyle="round,pad=0.08,rounding_size=0.08",
-                              facecolor="#FFFFFF", edgecolor="#2563EB", linewidth=1.6, zorder=2)
-    ax.add_patch(c_vstore)
-    ax.text(11.5, 5.50, r"Active Vector Memory $\mathcal{M}$ (HNSW)", fontsize=10.0, fontweight="bold", color="#1E3A8A", ha="center")
-    ax.text(11.5, 5.08, r"Cosine Space: $D_{\mathrm{cos}}(\mathbf{z}_q, \mathbf{z}_i) = 1 - \mathbf{z}_q^\top \mathbf{z}_i$", fontsize=8.5, color="#0F172A", ha="center")
-    ax.text(11.5, 4.70, r"Prototype Centroid Update: $\mathbf{p}_k \leftarrow \mathrm{Norm}(n \mathbf{p}_k + \mathbf{z}_t)$", fontsize=8.0, color="#1D4ED8", ha="center")
-    ax.text(11.5, 4.35, r"Lookup Latency: $0.15\text{ ms} \quad (k^* = 1)$", fontsize=7.8, fontweight="bold", color="#15803D", ha="center")
+    # Quarantine Buffer Sink (Bottom of IMO, width 4.35)
+    draw_card(ax, (7.10, 5.15), 4.35, 0.65,
+              facecolor="#FEF2F2", edgecolor="#DC2626", linewidth=1.3)
+    ax.text(9.275, 5.58, r"Quarantine Buffer $\mathcal{Q}$ (Isolated Non-Destructive Storage)",
+            fontsize=7.6, fontweight="bold", color="#991B1B", ha="center")
+    ax.text(9.275, 5.32, r"Stores $(\mathbf{z}_t, y_t, \text{reason}, \text{timestamp})$ $\mid$ Intercepts 100% Corrupted Samples (525/525)",
+            fontsize=6.5, color="#B91C1C", ha="center")
 
-    # Commitment from Gate 3 -> Vector Memory (Clean orthogonal path above quarantine)
-    ax.plot([6.7, 6.7], [1.40, 1.20], color="#16A34A", linewidth=1.6, zorder=3)
-    ax.plot([6.7, 9.2], [1.20, 1.20], color="#16A34A", linewidth=1.6, zorder=3)
-    ax.plot([9.2, 9.2], [1.20, 5.02], color="#16A34A", linewidth=1.6, zorder=3)
-    ax.add_patch(FancyArrowPatch((9.2, 5.02), (9.55, 5.02), arrowstyle="-|>", mutation_scale=14, linewidth=1.6, color="#16A34A", zorder=4))
-    ax.text(9.2, 3.25, "Pass All 3 Gates (Commit)", fontsize=7.5, fontweight="bold", color="#15803D", rotation=90, va="center", ha="center",
-            bbox=dict(boxstyle="square,pad=0.15", facecolor="#F0FDF4", edgecolor="#86EFAC", lw=0.8))
+    # Rejection Arrows (Dashed Red down from each Gate)
+    ax.add_patch(FancyArrowPatch((7.775, 6.00), (7.775, 5.80), arrowstyle="-|>", mutation_scale=10, linewidth=1.2, color="#DC2626", linestyle="--", zorder=3))
+    ax.add_patch(FancyArrowPatch((9.275, 6.00), (9.275, 5.80), arrowstyle="-|>", mutation_scale=10, linewidth=1.2, color="#DC2626", linestyle="--", zorder=3))
+    ax.add_patch(FancyArrowPatch((10.775, 6.00), (10.775, 5.80), arrowstyle="-|>", mutation_scale=10, linewidth=1.2, color="#DC2626", linestyle="--", zorder=3))
 
-    # Dynamic Evidence Fusion Box
-    c_fusion = FancyBboxPatch((9.55, 1.70), 3.9, 2.05, boxstyle="round,pad=0.08,rounding_size=0.08",
-                              facecolor="#FFFFFF", edgecolor="#7E22CE", linewidth=1.8, zorder=2)
-    ax.add_patch(c_fusion)
-    ax.text(11.5, 3.42, "Dynamic Evidence Fusion", fontsize=10.0, fontweight="bold", color="#581C87", ha="center")
-    ax.text(11.5, 2.98, r"$P(y = k \mid \mathbf{x}) = \alpha^* P_{\mathrm{clf}} + (1 - \alpha^*) P_{\mathrm{ret}}$",
-            fontsize=9.2, fontweight="bold", color="#6B21A8", ha="center")
-    ax.text(11.5, 2.58, r"Optimal Parameters: $\alpha^* = 0.60, \quad k^* = 1$", fontsize=8.2, color="#475569", ha="center")
-    ax.text(11.5, 2.22, r"Base Parametric Classifier: $P_{\mathrm{clf}}(y \mid \mathbf{x})$", fontsize=7.8, color="#9A3412", ha="center")
-    ax.text(11.5, 1.90, r"Retrieval Evidence: $P_{\mathrm{ret}}(y \mid \mathbf{x}) = \sum w_i \cdot \mathbf{1}[y_i = k]$", fontsize=7.8, color="#1D4ED8", ha="center")
+    # Arrow 4: Gate 3 (Pass All) -> Active Vector Memory
+    draw_arrow(ax, (11.40, 6.90), (11.90, 6.90), color="#16A34A", linewidth=2.0, label="Pass All", label_pos=0.5,
+               label_bg="#DCFCE7", label_border="#86EFAC", label_color="#14532D")
 
-    # Final Decision Output
-    c_out = FancyBboxPatch((9.85, 0.60), 3.3, 0.75, boxstyle="round,pad=0.06,rounding_size=0.06",
-                           facecolor="#F0FDF4", edgecolor="#16A34A", linewidth=1.5, zorder=2)
-    ax.add_patch(c_out)
-    ax.text(11.5, 1.05, r"Final Prediction: $y^* = \mathrm{argmax}_k P(y=k \mid \mathbf{x})$",
-            fontsize=9.0, fontweight="bold", color="#14532D", ha="center")
-    ax.text(11.5, 0.75, r"Hold-Out Test Accuracy: 100.00%  ($F_1 = 1.0000$)",
-            fontsize=8.0, color="#166534", ha="center")
+    # 5. Active Vector Memory & Class Prototypes (Col 5)
+    draw_card(ax, (11.90, 5.05), 2.30, 3.45,
+              title="Active Vector Memory",
+              subtitle="ChromaDB (HNSW Graph)",
+              badge="EXTERNAL STORAGE",
+              badge_colors=("#D1FAE5", "#065F46"),
+              facecolor="#FFFFFF", edgecolor="#059669", linewidth=1.8)
+    
+    ax.text(13.05, 7.42, r"$\mathcal{M} \leftarrow \mathcal{M} \cup \{(\mathbf{z}_t, y_t)\}$",
+            fontsize=8.8, fontweight="bold", color="#065F46", ha="center",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="#ECFDF5", edgecolor="#A7F3D0", lw=0.7))
+    ax.text(13.05, 7.00, "Metric: Cosine Proximity", fontsize=7.4, color="#334155", ha="center")
+    ax.text(13.05, 6.75, r"Search Complexity: $\mathcal{O}(\log N)$", fontsize=7.4, color="#334155", ha="center")
+    ax.text(13.05, 6.50, r"Host RAM (0 MB VRAM)", fontsize=7.4, fontweight="bold", color="#047857", ha="center")
 
-    # Connectors into Fusion
-    ax.add_patch(FancyArrowPatch((11.5, 4.15), (11.5, 3.75), arrowstyle="-|>", mutation_scale=13, linewidth=1.6, color="#2563EB", zorder=3))
-    ax.text(11.85, 3.95, r"$P_{\mathrm{ret}}$", fontsize=8.0, fontweight="bold", color="#2563EB")
+    # Centroid Prototype Box inside Col 5
+    p_proto = FancyBboxPatch((12.02, 5.18), 2.06, 1.10, boxstyle="round,pad=0.05,rounding_size=0.06",
+                             facecolor="#F0FDF4", edgecolor="#34D399", linewidth=1.2, zorder=2)
+    ax.add_patch(p_proto)
+    ax.text(13.05, 6.00, r"Class Prototypes $\{\mathbf{p}_c\}$", fontsize=7.8, fontweight="bold", color="#065F46", ha="center")
+    ax.text(13.05, 5.70, r"$\mathbf{p}_c \leftarrow \mathrm{Norm}(n \mathbf{p}_c + \mathbf{z}_t)$", fontsize=7.8, color="#047857", ha="center")
+    ax.text(13.05, 5.38, r"$\mathcal{O}(d)$ Constant-Time Update", fontsize=6.8, fontstyle="italic", color="#059669", ha="center")
 
-    ax.add_patch(FancyArrowPatch((11.5, 1.70), (11.5, 1.35), arrowstyle="-|>", mutation_scale=13, linewidth=1.6, color="#7E22CE", zorder=3))
 
-    # Query Pipeline (Inference Path from Adapter to HNSW)
-    ax.plot([2.2, 2.2], [0.65, 0.22], color="#7E22CE", linewidth=1.5, linestyle="--", zorder=3)
-    ax.plot([2.2, 9.35], [0.22, 0.22], color="#7E22CE", linewidth=1.5, linestyle="--", zorder=3)
-    ax.plot([9.35, 9.35], [0.22, 4.50], color="#7E22CE", linewidth=1.5, linestyle="--", zorder=3)
-    ax.add_patch(FancyArrowPatch((9.35, 4.50), (9.55, 4.50), arrowstyle="-|>", mutation_scale=13, linewidth=1.5, color="#7E22CE", linestyle="--", zorder=4))
-    ax.text(5.8, 0.22, r"Online Query Stream: $\mathbf{z}_q \to \mathrm{Top-}k \text{ HNSW Lookup } (0.15\text{ ms})$",
-            fontsize=8.0, fontweight="bold", color="#6B21A8", ha="center", va="center",
-            bbox=dict(boxstyle="round,pad=0.2", facecolor="#FAF5FF", edgecolor="#D8B4FE", lw=0.8))
+    # ==========================================================================
+    # STAGE B: ONLINE INFERENCE & DYNAMIC EVIDENCE FUSION (BOTTOM HALF)
+    # ==========================================================================
+    # 1. Query Input (Col 1)
+    draw_card(ax, (0.45, 0.80), 1.65, 2.95,
+              title="Inference Query",
+              badge="QUERY STREAM",
+              badge_colors=("#F3E8FF", "#6D28D9"),
+              facecolor="#FFFFFF", edgecolor="#7C3AED", linewidth=1.6)
+    ax.text(1.275, 2.80, r"$\mathbf{x}_q \in \mathcal{X}$", fontsize=10.5, fontweight="bold", color="#0F172A", ha="center")
+    ax.text(1.275, 2.35, r"Unlabeled Image", fontsize=8.0, color="#334155", ha="center")
+    ax.text(1.275, 2.05, r"RGB $224 \times 224 \times 3$", fontsize=7.6, color="#334155", ha="center")
+    ax.text(1.275, 1.60, "Real-Time Query", fontsize=7.4, color="#64748B", ha="center")
+    ax.text(1.275, 1.25, "Dual Evidence Streams", fontsize=7.2, fontstyle="italic", color="#64748B", ha="center")
+
+    # Split Arrows from Query Input:
+    # Arrow B1_top: to Shared Non-Parametric Stream (Upper Track of Stage B)
+    ax.add_patch(FancyArrowPatch((2.10, 2.50), (2.50, 2.90), arrowstyle="-|>", mutation_scale=12, linewidth=1.6, color="#0284C7", zorder=4))
+    # Arrow B1_bottom: to Parametric Stream (Lower Track of Stage B)
+    ax.add_patch(FancyArrowPatch((2.10, 1.95), (2.50, 1.45), arrowstyle="-|>", mutation_scale=12, linewidth=1.6, color="#2563EB", zorder=4))
+
+    # --------------------------------------------------------------------------
+    # TRACK 1 (UPPER TRACK OF STAGE B): NON-PARAMETRIC RETRIEVAL STREAM
+    # --------------------------------------------------------------------------
+    # Shared Backbone
+    draw_card(ax, (2.50, 2.35), 1.85, 1.40,
+              title="Shared Backbone",
+              subtitle="CLIP ViT-B/32",
+              badge="INVARIANT ENCODER",
+              badge_colors=("#F0F9FF", "#0369A1"),
+              facecolor="#FFFFFF", edgecolor="#0284C7", linewidth=1.4)
+    ax.text(3.425, 2.58, r"$\mathbf{e}_q \in \mathbb{R}^{512}$", fontsize=8.0, fontweight="bold", color="#0F172A", ha="center")
+
+    # Arrow to Metric Adapter
+    draw_arrow(ax, (4.35, 3.05), (4.75, 3.05), color="#0284C7", linewidth=1.4)
+
+    # Shared Metric Adapter
+    draw_card(ax, (4.75, 2.35), 1.85, 1.40,
+              title="Metric Adapter",
+              subtitle=r"Residual Head $g_\phi$",
+              badge="DOMAIN ALIGNED",
+              badge_colors=("#EEF2FF", "#4338CA"),
+              facecolor="#FFFFFF", edgecolor="#4F46E5", linewidth=1.4)
+    ax.text(5.675, 2.58, r"$\mathbf{z}_q \in \mathbb{R}^{512}$", fontsize=8.0, fontweight="bold", color="#0F172A", ha="center")
+
+    # Arrow from Metric Adapter to HNSW Retrieval
+    draw_arrow(ax, (6.60, 3.05), (7.00, 3.05), color="#4F46E5", label=r"$\mathbf{z}_q$", label_pos=0.5,
+               label_bg="#EEF2FF", label_border="#C7D2FE", label_color="#4338CA")
+
+    # HNSW Nearest-Neighbor Retrieval Box (Upper Track of Stage B)
+    draw_card(ax, (7.00, 2.15), 3.45, 1.60,
+              badge="RETRIEVAL EVIDENCE STREAM",
+              badge_colors=("#ECFDF5", "#065F46"),
+              facecolor="#FFFFFF", edgecolor="#059669", linewidth=1.6)
+    ax.text(8.725, 3.32, "HNSW Vector Proximity Search", fontsize=8.6, fontweight="bold", color="#065F46", ha="center")
+    ax.text(8.725, 3.02, r"$\mathcal{N}_{k^*}(\mathbf{z}_q) \leftarrow \mathrm{Query}(\mathcal{M}, \mathbf{z}_q, k^*=1)$",
+            fontsize=8.2, fontweight="bold", color="#047857", ha="center")
+    ax.text(8.725, 2.68, r"$P_{\mathrm{ret}}(y=k \mid \mathbf{x}_q) = \sum_{i \in \mathcal{N}_{k^*}} \mathbb{I}(y_i = k) \cdot \frac{\exp(s_i/T)}{\sum \exp(s_j/T)}$",
+            fontsize=7.4, color="#0F172A", ha="center")
+    ax.text(8.725, 2.34, r"Sub-Millisecond Query Latency: $0.15\text{ ms} \quad (>6,700 \text{ img/sec})$",
+            fontsize=7.2, fontweight="bold", color="#047857", ha="center")
+
+    # Arrow from Retrieval to Dynamic Fusion
+    draw_arrow(ax, (10.45, 2.95), (10.95, 2.60), color="#059669", linewidth=1.8, label=r"$P_{\mathrm{ret}}$", label_pos=0.5,
+               label_bg="#DCFCE7", label_border="#86EFAC", label_color="#14532D")
+
+    # --------------------------------------------------------------------------
+    # TRACK 2 (LOWER TRACK OF STAGE B): PARAMETRIC BASE CLASSIFIER
+    # --------------------------------------------------------------------------
+    draw_card(ax, (2.50, 0.70), 7.95, 1.25,
+              badge="PARAMETRIC EVIDENCE STREAM",
+              badge_colors=("#EFF6FF", "#1E40AF"),
+              facecolor="#FFFFFF", edgecolor="#2563EB", linewidth=1.5)
+    ax.text(6.475, 1.50, "Parametric Base Visual Classifier (CLIP Linear Probe / EfficientNetB0)",
+            fontsize=8.6, fontweight="bold", color="#1E40AF", ha="center")
+    ax.text(6.475, 1.10, r"$P_{\mathrm{clf}}(y \mid \mathbf{x}_q) = \mathrm{Softmax}(\mathbf{W}_{\mathrm{clf}} \mathbf{e}_q + \mathbf{b}) \quad (\text{Fixed Parametric Representation Prior})$",
+            fontsize=8.2, fontweight="bold", color="#0F172A", ha="center")
+
+    # Arrow from Parametric Base Classifier to Dynamic Fusion
+    draw_arrow(ax, (10.45, 1.32), (10.95, 1.80), color="#2563EB", linewidth=1.8, label=r"$P_{\mathrm{clf}}$", label_pos=0.5,
+               label_bg="#EFF6FF", label_border="#BFDBFE", label_color="#1E40AF")
+
+    # ==========================================================================
+    # INTER-STAGE VERTICAL COUPLING (Active Memory M -> Vector Retrieval)
+    # ==========================================================================
+    # Clean orthogonal path from Stage A Active Memory down to Stage B Retrieval Engine
+    # Drops from bottom of Memory M (x=13.05, y=5.05), runs horizontally at y=4.62, drops into Retrieval Engine at x=8.725 (y=3.75)
+    ax.plot([13.05, 13.05], [5.05, 4.62], color="#059669", linewidth=1.8, linestyle="--", zorder=3)
+    ax.plot([13.05, 8.725], [4.62, 4.62], color="#059669", linewidth=1.8, linestyle="--", zorder=3)
+    ax.add_patch(FancyArrowPatch((8.725, 4.62), (8.725, 3.75), arrowstyle="-|>", mutation_scale=12,
+                                 linewidth=1.8, color="#059669", linestyle="--", zorder=4))
+    ax.text(10.88, 4.62, r"Queries Active Index $\mathcal{M}$ (Zero GPU VRAM, $0.15\text{ ms}$)",
+            fontsize=7.4, fontweight="bold", color="#065F46", ha="center", va="center",
+            bbox=dict(boxstyle="round,pad=0.20", facecolor="#ECFDF5", edgecolor="#A7F3D0", lw=0.7))
+
+    # --------------------------------------------------------------------------
+    # STAGE B CONVERGENCE: DYNAMIC EVIDENCE FUSION & FINAL OUTPUT
+    # --------------------------------------------------------------------------
+    # Dynamic Evidence Fusion Engine (x=10.95 to 13.00, width 2.05)
+    draw_card(ax, (10.95, 0.85), 2.05, 2.80,
+              badge="DECISION ENGINE",
+              badge_colors=("#FAF5FF", "#6B21A8"),
+              facecolor="#FFFFFF", edgecolor="#7C3AED", linewidth=1.8)
+    ax.text(11.975, 3.20, "Dynamic Fusion", fontsize=8.6, fontweight="bold", color="#581C87", ha="center")
+    ax.text(11.975, 2.96, "Evidence Consensus", fontsize=7.2, color="#6B21A8", ha="center")
+    ax.text(11.975, 2.55, r"$P(y \mid \mathbf{x}_q) =$", fontsize=8.5, fontweight="bold", color="#581C87", ha="center")
+    ax.text(11.975, 2.25, r"$\alpha^* P_{\mathrm{clf}} + (1 - \alpha^*) P_{\mathrm{ret}}$", fontsize=8.5, fontweight="bold", color="#6B21A8", ha="center")
+    ax.text(11.975, 1.80, r"Optimal Parameters:", fontsize=7.4, fontweight="bold", color="#334155", ha="center")
+    ax.text(11.975, 1.52, r"$\alpha^* = 0.60 \quad (k^* = 1)$", fontsize=7.8, color="#0F172A", ha="center")
+    ax.text(11.975, 1.18, "Validation Calibrated", fontsize=7.0, fontstyle="italic", color="#64748B", ha="center")
+
+    # Arrow from Fusion to Final Prediction
+    draw_arrow(ax, (13.00, 2.25), (13.25, 2.25), color="#7C3AED", linewidth=2.0)
+
+    # Final Calibrated Output Decision (x=13.25 to 14.45, width 1.20)
+    draw_card(ax, (13.25, 0.85), 1.20, 2.80,
+              facecolor="#15803D", edgecolor="#14532D", linewidth=2.0)
+    ax.text(13.85, 3.35, "OUTPUT", fontsize=7.6, fontweight="bold", color="#BBF7D0", ha="center")
+    ax.text(13.85, 2.95, r"$y^* = \mathrm{argmax}_k$", fontsize=8.0, color="#DCFCE7", ha="center")
+    ax.text(13.85, 2.65, r"$P(y = k \mid \mathbf{x}_q)$", fontsize=8.0, fontweight="bold", color="#FFFFFF", ha="center")
+    ax.text(13.85, 2.05, "100.0%", fontsize=13.0, fontweight="bold", color="#FFFFFF", ha="center")
+    ax.text(13.85, 1.68, "Test Accuracy", fontsize=7.2, color="#BBF7D0", ha="center")
+    ax.text(13.85, 1.30, r"$F_1 = 1.0000$", fontsize=7.6, fontweight="bold", color="#FEF08A", ha="center")
 
     save_figure(fig, "fig1_architecture")
 
